@@ -9,7 +9,9 @@
     "type-check": "tsc --noEmit",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "migrate:dochub": "tsx scripts/migrate-dochub-users.ts",
+    "migrate:dochub:dry": "tsx scripts/migrate-dochub-users.ts --dry-run --verbose"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -25,6 +27,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

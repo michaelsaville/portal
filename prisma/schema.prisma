@@ -8,7 +8,11 @@
 // migration phases.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Native covers the host; linux-musl-openssl-3.0.x covers the
+  // node:20-alpine runtime used both in the production Dockerfile and
+  // in the throwaway containers used for migrations / db push.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
