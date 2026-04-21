@@ -156,17 +156,26 @@ export default async function EstimateDetailPage({ params }: { params: Promise<{
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-200">
-                {estimate.items.map((it) => (
-                  <tr key={it.id}>
-                    <td className="px-4 py-2">
-                      <div className="text-stone-800">{it.item.name}</div>
-                      {it.description && <div className="text-xs text-stone-500 whitespace-pre-wrap">{it.description}</div>}
-                    </td>
-                    <td className="px-4 py-2 text-right text-stone-700">{it.quantity}</td>
-                    <td className="px-4 py-2 text-right text-stone-700 whitespace-nowrap">{money(it.unitPrice)}</td>
-                    <td className="px-4 py-2 text-right text-stone-700 whitespace-nowrap">{money(it.totalPrice)}</td>
-                  </tr>
-                ))}
+                {estimate.items.map((it) => {
+                  // For Syncro-imported rows the description is the real
+                  // product/service name; it.item.name is a synthetic
+                  // "Imported line item" placeholder. Prefer description
+                  // when it's set so clients don't see a wall of identical
+                  // item labels.
+                  const primary = it.description ?? it.item.name
+                  const secondary = it.description ? null : null
+                  return (
+                    <tr key={it.id}>
+                      <td className="px-4 py-2">
+                        <div className="text-stone-800 whitespace-pre-wrap">{primary}</div>
+                        {secondary && <div className="text-xs text-stone-500">{secondary}</div>}
+                      </td>
+                      <td className="px-4 py-2 text-right text-stone-700">{it.quantity}</td>
+                      <td className="px-4 py-2 text-right text-stone-700 whitespace-nowrap">{money(it.unitPrice)}</td>
+                      <td className="px-4 py-2 text-right text-stone-700 whitespace-nowrap">{money(it.totalPrice)}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
               <tfoot className="bg-stone-50 text-sm">
                 <tr>
