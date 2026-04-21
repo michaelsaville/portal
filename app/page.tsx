@@ -27,12 +27,18 @@ export default async function HomePage() {
               TicketHub.
             </p>
             {isAdmin && (
-              <div>
+              <div className="flex gap-2 justify-center flex-wrap">
                 <Link
                   href="/admin/users"
                   className="inline-block rounded-md border border-stone-300 bg-white text-sm font-medium px-4 py-2 text-stone-700 hover:bg-stone-100"
                 >
-                  Manage portal users →
+                  Manage users
+                </Link>
+                <Link
+                  href="/admin/messages"
+                  className="inline-block rounded-md border border-stone-300 bg-white text-sm font-medium px-4 py-2 text-stone-700 hover:bg-stone-100"
+                >
+                  Messages
                 </Link>
               </div>
             )}

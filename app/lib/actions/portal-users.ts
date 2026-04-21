@@ -5,6 +5,7 @@ import { prisma } from '@/app/lib/prisma'
 import { requirePortalAdmin } from '@/app/lib/portal-admin'
 import { issueMagicLink, audit } from '@/app/lib/portal-auth'
 import { isPortalRole, PORTAL_ROLE_KEYS } from '@/app/lib/portal-roles'
+import { sendMessage } from '@/app/lib/messaging/send'
 
 export type ActionResult<T = unknown> =
   | { ok: true; data?: T }
@@ -58,10 +59,11 @@ export async function inviteUser(input: {
     })
   }
 
+  const INVITE_TTL_HOURS = 48
   const { token, expiresAt } = await issueMagicLink({
     portalUserId: user.id,
     purpose: 'PASSWORD_RESET',
-    ttlMinutes: 60 * 24 * 2, // 2 days — invites shouldn't be tight
+    ttlMinutes: 60 * INVITE_TTL_HOURS,
   })
   const base = process.env.PUBLIC_URL ?? 'https://portal.pcc2k.com'
   const inviteLink = `${base.replace(/\/$/, '')}/login/reset/${token}`
@@ -72,8 +74,27 @@ export async function inviteUser(input: {
     data: { targetEmail: email, role: input.role, expiresAt },
   })
 
-  console.log(
-    `[invite] by=${admin.user.email} target=${email} client=${input.clientId} role=${input.role} exp=${expiresAt.toISOString()} link=${inviteLink}`,
+  // Resolve the client name for the email template. Lives in DocHub's
+  // schema, so raw SQL.
+  const [clientRow] = await prisma.$queryRaw<Array<{ name: string }>>`
+    SELECT name FROM public."Client" WHERE id = ${input.clientId} LIMIT 1
+  `
+  await sendMessage(
+    'portal_invite',
+    {
+      link: inviteLink,
+      expiresInHours: INVITE_TTL_HOURS,
+      userName: user.name,
+      invitedByName: admin.user.name,
+      clientName: clientRow?.name ?? 'your organization',
+      role: input.role,
+    },
+    {
+      toEmail: user.email,
+      toName: user.name,
+      portalUserId: user.id,
+      metadata: { clientId: input.clientId, role: input.role },
+    },
   )
 
   revalidatePath('/admin/users')

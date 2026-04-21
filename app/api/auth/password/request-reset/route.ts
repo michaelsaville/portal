@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/app/lib/prisma'
 import { issueMagicLink, audit } from '@/app/lib/portal-auth'
+import { sendMessage } from '@/app/lib/messaging/send'
 
 const BodySchema = z.object({
   email: z.string().email().max(320).transform((s) => s.toLowerCase().trim()),
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
-  const { token, expiresAt } = await issueMagicLink({
+  const { token } = await issueMagicLink({
     portalUserId: user.id,
     purpose: 'PASSWORD_RESET',
     ttlMinutes: 60,
@@ -38,8 +39,11 @@ export async function POST(req: NextRequest) {
 
   const base = process.env.PUBLIC_URL ?? 'https://portal.pcc2k.com'
   const link = `${base.replace(/\/$/, '')}/login/reset/${token}`
-  console.log(
-    `[magic-link][PASSWORD_RESET] user=${user.email} exp=${expiresAt.toISOString()} link=${link}`,
+
+  await sendMessage(
+    'password_reset',
+    { link, expiresInMinutes: 60, userName: user.name },
+    { toEmail: user.email, toName: user.name, portalUserId: user.id },
   )
 
   return NextResponse.json({ ok: true })

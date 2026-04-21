@@ -40,10 +40,11 @@ model PortalUser {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  sessions     PortalSession[]
-  magicLinks   PortalMagicLink[]
-  clientLinks  PortalUserClientLink[]
-  auditEvents  PortalAuditEvent[]
+  sessions         PortalSession[]
+  magicLinks       PortalMagicLink[]
+  clientLinks      PortalUserClientLink[]
+  auditEvents      PortalAuditEvent[]
+  outboundMessages PortalOutboundMessage[]
 
   @@index([isActive])
   @@map("portal_users")
@@ -171,5 +172,39 @@ model PortalAuditEvent {
   @@index([portalUserId, createdAt])
   @@index([type, createdAt])
   @@map("portal_audit_events")
+  @@schema("portal")
+}
+
+/// Every customer-facing email / notification the portal sends. One row
+/// per attempt — `status` captures SENT / FAILED; retries create new
+/// rows so history is append-only. Template keys are registered in
+/// app/lib/portal-message-templates.ts.
+model PortalOutboundMessage {
+  id              String   @id @default(cuid())
+  /// Registry key from portal-message-templates.ts, e.g. "magic_link_login".
+  /// Denormalized for log-browsing even if a template is later renamed
+  /// in code.
+  templateKey     String
+  /// The portal user the message was addressed to, when applicable.
+  /// Null for pre-registration flows (e.g. invite of a brand-new email).
+  portalUserId    String?
+  portalUser      PortalUser? @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
+  toEmail         String
+  toName          String?
+  subject         String
+  /// First ~2 KB of the rendered body for log preview. The full HTML
+  /// is not stored — if you need it, re-render from the template.
+  bodyPreview     String
+  status          String   @default("SENT")   // SENT | FAILED | QUEUED
+  errorMessage    String?
+  /// Arbitrary context — e.g. { clientId, estimateId, invoiceId }.
+  /// Searchable with Postgres JSON ops.
+  metadata        Json?
+  sentAt          DateTime @default(now())
+
+  @@index([templateKey, sentAt])
+  @@index([toEmail, sentAt])
+  @@index([portalUserId, sentAt])
+  @@map("portal_outbound_messages")
   @@schema("portal")
 }

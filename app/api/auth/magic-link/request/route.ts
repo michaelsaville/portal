@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/app/lib/prisma'
-import { issueMagicLink, audit } from '@/app/lib/portal-auth'
+import { issueMagicLink, audit, MAGIC_LINK_TTL_MINUTES } from '@/app/lib/portal-auth'
+import { sendMessage } from '@/app/lib/messaging/send'
 
 const BodySchema = z.object({
   email: z.string().email().max(320).transform((s) => s.toLowerCase().trim()),
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
-  const { token, expiresAt } = await issueMagicLink({
+  const { token } = await issueMagicLink({
     portalUserId: user.id,
     purpose: 'LOGIN',
   })
@@ -56,9 +57,10 @@ export async function POST(req: NextRequest) {
   const base = process.env.PUBLIC_URL ?? 'https://portal.pcc2k.com'
   const link = `${base.replace(/\/$/, '')}/api/auth/magic-link/${token}`
 
-  // Phase 1: log-only. Grep the container logs for this prefix.
-  console.log(
-    `[magic-link][LOGIN] user=${user.email} exp=${expiresAt.toISOString()} link=${link}`,
+  await sendMessage(
+    'magic_link_login',
+    { link, expiresInMinutes: MAGIC_LINK_TTL_MINUTES, userName: user.name },
+    { toEmail: user.email, toName: user.name, portalUserId: user.id },
   )
 
   return NextResponse.json({ ok: true })
