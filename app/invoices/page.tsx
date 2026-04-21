@@ -95,6 +95,7 @@ export default async function InvoicesPage({
   const paidInvoice = justPaidId
     ? invoices.find((i) => i.id === justPaidId)
     : null
+  const isImpersonating = !!session.impersonatedStaffEmail
 
   return (
     <PortalSection title="Invoices" subtitle={subtitle} error={error}>
@@ -124,7 +125,7 @@ export default async function InvoicesPage({
             </thead>
             <tbody className="divide-y divide-stone-200">
               {invoices.map((i) => {
-                const canPay = ['SENT', 'OVERDUE'].includes(i.status) && !!i.stripePaymentLinkUrl
+                const canPay = ['SENT', 'OVERDUE'].includes(i.status) && !!i.stripePaymentLinkUrl && !isImpersonating
                 return (
                   <tr key={i.id}>
                     <td className="px-4 py-2 font-mono text-xs text-stone-500">#{i.invoiceNumber}</td>

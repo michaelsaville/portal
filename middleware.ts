@@ -25,7 +25,7 @@ export const config = {
      *   - /api/bff/* (service-to-service, HMAC-authed separately)
      *   - /api/health (liveness)
      */
-    '/((?!_next/|favicon|robots|sitemap|login|api/auth/|api/bff/|api/health).*)',
+    '/((?!_next/|favicon|robots|sitemap|login|impersonate|api/auth/|api/bff/|api/health).*)',
   ],
 }
 

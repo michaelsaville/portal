@@ -15,6 +15,7 @@ import { getSession } from '@/app/lib/portal-auth'
 export async function switchClientAction(formData: FormData) {
   const session = await getSession()
   if (!session) return
+  if (session.impersonatedStaffEmail) return // staff tunnel stays on its chosen client
 
   const clientId = String(formData.get('clientId') ?? '')
   if (!clientId) return

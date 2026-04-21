@@ -108,6 +108,13 @@ model PortalSession {
   expiresAt      DateTime
   createdAt      DateTime   @default(now())
 
+  /// When set, this session is a staff "view as client" tunnel from
+  /// TicketHub. The session still authenticates a real PortalUser row
+  /// (a synthetic one, shared across all impersonation sessions), but
+  /// the portal UI renders a banner + locks out write paths so the
+  /// staff member can only look.
+  impersonatedStaffEmail String?
+
   @@index([portalUserId])
   @@index([expiresAt])
   @@map("portal_sessions")

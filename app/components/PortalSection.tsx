@@ -37,8 +37,12 @@ export default async function PortalSection({
   children,
 }: Props) {
   const session = await getSession()
+  const isImpersonating = !!session?.impersonatedStaffEmail
   let switcher: React.ReactNode = null
-  if (session) {
+  // Skip the whole link lookup when the session is a staff impersonation
+  // tunnel — the switcher doesn't apply (staff tunnel to one specific
+  // client at a time) and surfacing it would just confuse the banner.
+  if (session && !isImpersonating) {
     const links = await prisma.portalUserClientLink.findMany({
       where: { portalUserId: session.user.id },
       select: { clientId: true, role: true },
@@ -66,6 +70,11 @@ export default async function PortalSection({
       switcher = <ClientSwitcher links={enriched} activeClientId={activeId} />
     }
   }
+
+  // Banner rendered in the root layout — don't duplicate here. We still
+  // suppress the switcher above for impersonation sessions, which is
+  // enough chrome difference for PortalSection to care about.
+  void isImpersonating
 
   return (
     <main className="min-h-screen bg-stone-50 p-6 sm:p-10">

@@ -68,6 +68,7 @@ async function actionOnEstimate(formData: FormData) {
   'use server'
   const session = await getSession()
   if (!session) redirect('/login')
+  if (session.impersonatedStaffEmail) return // staff tunnel is read-only
 
   const estimateId = String(formData.get('estimateId') ?? '')
   const action = String(formData.get('action') ?? '') as 'approve' | 'decline'

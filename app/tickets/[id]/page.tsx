@@ -85,6 +85,7 @@ async function replyAction(formData: FormData) {
   'use server'
   const session = await getSession()
   if (!session) redirect('/login')
+  if (session.impersonatedStaffEmail) return // staff tunnel is read-only
   const ticketId = String(formData.get('ticketId') ?? '')
   const body = String(formData.get('body') ?? '').trim()
   if (!ticketId || !body) return

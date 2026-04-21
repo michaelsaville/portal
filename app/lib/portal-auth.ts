@@ -129,6 +129,8 @@ export interface ResolvedSession {
   sessionId: string
   user: PortalUser
   activeClientId: string | null
+  /** Non-null for "view as client" staff tunnels from TicketHub. */
+  impersonatedStaffEmail: string | null
 }
 
 /**
@@ -149,27 +151,31 @@ export async function getSession(): Promise<ResolvedSession | null> {
   if (!session.portalUser.isActive) return null
   if (session.expiresAt < new Date()) return null
 
-  // Absolute cap: don't slide past 90 days from creation.
-  const cap = new Date(
-    session.createdAt.getTime() + SESSION_ABSOLUTE_CAP_DAYS * 86_400_000,
-  )
-  const nextExpiry = new Date(
-    Math.min(
-      Date.now() + SESSION_TTL_DAYS * 86_400_000,
-      cap.getTime(),
-    ),
-  )
-  if (nextExpiry.getTime() !== session.expiresAt.getTime()) {
-    await prisma.portalSession.update({
-      where: { id: session.id },
-      data: { expiresAt: nextExpiry, lastSeenAt: new Date() },
-    })
+  // Impersonation sessions are short-lived and intentionally NOT slid —
+  // we want the 30-minute cap from creation to hold hard.
+  if (!session.impersonatedStaffEmail) {
+    const cap = new Date(
+      session.createdAt.getTime() + SESSION_ABSOLUTE_CAP_DAYS * 86_400_000,
+    )
+    const nextExpiry = new Date(
+      Math.min(
+        Date.now() + SESSION_TTL_DAYS * 86_400_000,
+        cap.getTime(),
+      ),
+    )
+    if (nextExpiry.getTime() !== session.expiresAt.getTime()) {
+      await prisma.portalSession.update({
+        where: { id: session.id },
+        data: { expiresAt: nextExpiry, lastSeenAt: new Date() },
+      })
+    }
   }
 
   return {
     sessionId: session.id,
     user: session.portalUser,
     activeClientId: session.activeClientId,
+    impersonatedStaffEmail: session.impersonatedStaffEmail,
   }
 }
 
