@@ -1,4 +1,5 @@
 import 'server-only'
+import { createHmac } from 'node:crypto'
 import { prisma } from '@/app/lib/prisma'
 import {
   getTemplate,
@@ -121,20 +122,48 @@ export async function sendMessage<K extends PortalTemplateKey>(
 }
 
 /**
- * Delivery stub. Phase 1: log to stdout with a parseable prefix so
- * dev can grep it. Phase 2 replaces this with a BFF POST to
- * tickethub.pcc2k.com/api/bff/portal/send-email (HMAC-signed).
+ * Delivery via the TicketHub BFF.
+ *
+ * Target: POST ${TICKETHUB_BFF_URL}/api/bff/portal/send-email
+ * Auth: HMAC-SHA256 of `${timestampMs}.${rawBody}` signed with
+ * PORTAL_BFF_SECRET, delivered in X-Portal-Signature + X-Portal-Timestamp.
+ * Replay window ±5min on the receiving end.
+ *
+ * Throws on non-2xx so sendMessage() records a FAILED row with the
+ * TH-side error message captured from the JSON response body.
  */
 async function deliver(msg: {
   to: string
   subject: string
   html: string
 }): Promise<void> {
-  const line = [
-    '[portal-mail]',
-    `to=${msg.to}`,
-    `subject=${JSON.stringify(msg.subject)}`,
-    `bytes=${msg.html.length}`,
-  ].join(' ')
-  console.log(line)
+  const base = process.env.TICKETHUB_BFF_URL
+  const secret = process.env.PORTAL_BFF_SECRET
+  if (!base) throw new Error('TICKETHUB_BFF_URL not configured')
+  if (!secret) throw new Error('PORTAL_BFF_SECRET not configured')
+
+  const body = JSON.stringify({ to: msg.to, subject: msg.subject, html: msg.html })
+  const ts = Date.now().toString()
+  const sig = createHmac('sha256', secret).update(`${ts}.${body}`).digest('hex')
+
+  const res = await fetch(`${base.replace(/\/+$/, '')}/api/bff/portal/send-email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Portal-Timestamp': ts,
+      'X-Portal-Signature': `sha256=${sig}`,
+    },
+    body,
+  })
+
+  if (!res.ok) {
+    let detail = ''
+    try {
+      const json = (await res.json()) as { error?: string }
+      detail = json.error ?? ''
+    } catch {
+      detail = (await res.text().catch(() => '')).slice(0, 200)
+    }
+    throw new Error(`BFF HTTP ${res.status}${detail ? ': ' + detail : ''}`)
+  }
 }
