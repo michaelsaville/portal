@@ -173,10 +173,12 @@ export default async function TicketsPage() {
               </thead>
               <tbody className="divide-y divide-stone-200">
                 {tickets.map((t) => (
-                  <tr key={t.id}>
-                    <td className="px-4 py-2 font-mono text-xs text-stone-500">#{t.ticketNumber}</td>
+                  <tr key={t.id} className="hover:bg-stone-50">
+                    <td className="px-4 py-2 font-mono text-xs text-stone-500">
+                      <Link href={`/tickets/${t.id}`} className="hover:text-stone-800">#{t.ticketNumber}</Link>
+                    </td>
                     <td className="px-4 py-2">
-                      <div className="text-stone-800">{t.title}</div>
+                      <Link href={`/tickets/${t.id}`} className="text-stone-800 hover:underline">{t.title}</Link>
                       {(t.site?.name || t.contact) && (
                         <div className="text-xs text-stone-500">
                           {[t.site?.name, t.contact && `${t.contact.firstName} ${t.contact.lastName}`].filter(Boolean).join(' · ')}
@@ -197,7 +199,7 @@ export default async function TicketsPage() {
         )}
 
         <p className="mt-8 text-xs text-stone-500">
-          Showing the {tickets.length > 0 ? `${tickets.length} most recent` : 'last 50'} tickets. Individual ticket history and reply isn't built yet — email to reply.
+          Showing the {tickets.length > 0 ? `${tickets.length} most recent` : 'last 50'} tickets. Click a row to read the thread and reply.
         </p>
       </div>
     </main>
