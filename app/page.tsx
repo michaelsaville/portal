@@ -27,6 +27,8 @@ export default async function HomePage() {
             <nav className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {[
                 { href: '/tickets', label: 'Tickets' },
+                { href: '/estimates', label: 'Estimates' },
+                { href: '/invoices', label: 'Invoices' },
                 { href: '/assets', label: 'Assets' },
                 { href: '/documents', label: 'Documents' },
                 { href: '/licenses', label: 'Licenses' },
