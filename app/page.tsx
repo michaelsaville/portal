@@ -21,11 +21,27 @@ export default async function HomePage() {
         {session ? (
           <>
             <p className="text-stone-600 leading-relaxed">
-              Your unified client portal is under construction. Sections for
-              assets, documents, tickets, estimates, and invoices will
-              appear here as they&apos;re migrated from DocHub and
-              TicketHub.
+              Everything we keep on file for your organization, in one
+              place.
             </p>
+            <nav className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {[
+                { href: '/assets', label: 'Assets' },
+                { href: '/documents', label: 'Documents' },
+                { href: '/licenses', label: 'Licenses' },
+                { href: '/contacts', label: 'Contacts' },
+                { href: '/locations', label: 'Locations' },
+                { href: '/domains', label: 'Domains' },
+              ].map((s) => (
+                <Link
+                  key={s.href}
+                  href={s.href}
+                  className="rounded-md border border-stone-300 bg-white px-4 py-3 text-sm font-medium text-stone-700 hover:bg-stone-100"
+                >
+                  {s.label}
+                </Link>
+              ))}
+            </nav>
             {isAdmin && (
               <div className="flex gap-2 justify-center flex-wrap">
                 <Link
