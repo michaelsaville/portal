@@ -1,0 +1,171 @@
+// Portal schema — unified client-facing portal for DocHub + TicketHub.
+// Lives in the same Postgres instance as DocHub (resolved decision D1),
+// isolated in the `portal` schema so drift detection can't touch the
+// other apps' tables. Never remove the schemas array or @@schema
+// directives — db push will try to drop everything it can't see.
+//
+// See docs/DB.md for the design rationale and docs/PLAN.md for the
+// migration phases.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["portal"]
+}
+
+// ============================================================
+// Identity
+// ============================================================
+
+/// A single human identity. Deduped by email (lowercased on write). One
+/// row per person, regardless of how many clients they touch — multi-
+/// client access hangs off `PortalUserClientLink`.
+model PortalUser {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  phone         String?
+  /// scrypt hash. Null for users who only sign in via magic link or SSO.
+  passwordHash  String?
+  isActive      Boolean  @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions     PortalSession[]
+  magicLinks   PortalMagicLink[]
+  clientLinks  PortalUserClientLink[]
+  auditEvents  PortalAuditEvent[]
+
+  @@index([isActive])
+  @@map("portal_users")
+  @@schema("portal")
+}
+
+/// Joins a PortalUser to a DocHub Client, with role + permission
+/// overrides. Fixes the DocHub single-client limit — Jen can be BILLING
+/// at Acme AND TECHNICAL at Beta with one login.
+model PortalUserClientLink {
+  id                 String     @id @default(cuid())
+  portalUserId       String
+  portalUser         PortalUser @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
+
+  /// DocHub Client.id — authoritative source of client records. Not an
+  /// FK at the schema level because DocHub lives in a different Prisma
+  /// schema namespace; integrity checked at write time.
+  clientId           String
+
+  /// Optional pointers into the sibling apps' contact tables. Populated
+  /// during migration / first-touch; remain null when the app-side
+  /// contact hasn't been matched yet.
+  dochubPersonId     String?
+  tickethubContactId String?
+
+  /// One of: OWNER | BILLING | TECHNICAL | USER | VIEWER. Stored as
+  /// string (not Prisma enum) so the set can later graduate to a
+  /// PortalRole FK table without an enum drop. Validated at the app
+  /// layer against PORTAL_ROLES in app/lib/portal-roles.ts.
+  role               String     @default("USER")
+
+  /// Per-link permission override. When empty ({}), the role's preset
+  /// applies as-is. Boolean keys here override the preset per-section:
+  /// { assets, documents, licenses, contacts, locations, domains,
+  ///   vault, tickets, invoices, estimates, payments }
+  permissions        Json       @default("{}")
+
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@unique([portalUserId, clientId])
+  @@index([clientId])
+  @@map("portal_user_client_links")
+  @@schema("portal")
+}
+
+/// Authenticated session — backs the `portal_session` HTTP-only cookie.
+/// Sliding 30-day expiry, absolute cap enforced at app layer.
+model PortalSession {
+  id             String     @id @default(cuid())
+  /// 32-byte hex. Never logged.
+  token          String     @unique
+  portalUserId   String
+  portalUser     PortalUser @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
+  /// For multi-client users: which client they've "switched to" in UI.
+  /// Null for single-client users. Updated via POST /api/portal/switch.
+  activeClientId String?
+  userAgent      String?
+  ipAddress      String?
+  lastSeenAt     DateTime   @default(now())
+  expiresAt      DateTime
+  createdAt      DateTime   @default(now())
+
+  @@index([portalUserId])
+  @@index([expiresAt])
+  @@map("portal_sessions")
+  @@schema("portal")
+}
+
+/// One-time or few-time token used for login emails, email-action
+/// buttons (approve/decline estimate, snooze reminder, etc.), and
+/// password reset. Replaces TicketHub's `TH_ContactPortalToken` with
+/// usesLeft counter and proper revocation.
+model PortalMagicLink {
+  id           String           @id @default(cuid())
+  /// 32-byte base64url. Never logged.
+  token        String           @unique
+  portalUserId String
+  portalUser   PortalUser       @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
+  purpose      MagicLinkPurpose
+  /// Bound context — e.g. { estimateId, reminderId, invoiceId }.
+  payload      Json?
+  usesLeft     Int              @default(1)
+  consumedAt   DateTime?
+  lastUsedAt   DateTime?
+  lastUsedIp   String?
+  expiresAt    DateTime
+  createdAt    DateTime         @default(now())
+
+  @@index([portalUserId, purpose, consumedAt])
+  @@index([expiresAt])
+  @@map("portal_magic_links")
+  @@schema("portal")
+}
+
+enum MagicLinkPurpose {
+  LOGIN
+  PASSWORD_RESET
+  ACTION_APPROVE_ESTIMATE
+  ACTION_DECLINE_ESTIMATE
+  ACTION_ACK_REMINDER
+  ACTION_SNOOZE_REMINDER
+  ACTION_CONFIRM_APPT
+  ACTION_RESCHEDULE_APPT
+  ACTION_PAY_INVOICE
+
+  @@schema("portal")
+}
+
+/// Audit trail. Every privilege-relevant action (login, failed login,
+/// permission change, magic-link consumed, etc.) gets a row. Drives
+/// compliance + support investigations.
+model PortalAuditEvent {
+  id           String      @id @default(cuid())
+  portalUserId String?
+  portalUser   PortalUser? @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
+  /// Enum below, plus freeform data payload.
+  type         String
+  clientId     String?
+  ipAddress    String?
+  userAgent    String?
+  data         Json?
+  createdAt    DateTime    @default(now())
+
+  @@index([portalUserId, createdAt])
+  @@index([type, createdAt])
+  @@map("portal_audit_events")
+  @@schema("portal")
+}

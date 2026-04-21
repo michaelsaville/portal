@@ -1,0 +1,24 @@
+services:
+  app:
+    build: .
+    image: portal:local
+    container_name: portal-app
+    restart: unless-stopped
+    ports:
+      - "3006:3000"
+    env_file:
+      - .env.local
+    networks:
+      - default
+    volumes:
+      - portal_uploads:/uploads
+
+volumes:
+  portal_uploads:
+
+networks:
+  default:
+    # Join DocHub's bridge so `db:5432` resolves inside the container.
+    # Don't change this without confirming what else rides the network.
+    name: dochub_default
+    external: true
