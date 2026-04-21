@@ -1,6 +1,11 @@
 import Link from 'next/link'
+import { getSession } from '@/app/lib/portal-auth'
 
-export default function HomePage() {
+export const dynamic = 'force-dynamic'
+
+export default async function HomePage() {
+  const session = await getSession()
+
   return (
     <main className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-br from-stone-50 to-stone-100 text-stone-800">
       <div className="max-w-xl text-center space-y-6">
@@ -8,25 +13,47 @@ export default function HomePage() {
           PCC2K · portal.pcc2k.com
         </div>
         <h1 className="font-serif text-4xl font-bold">
-          Client Portal
+          {session ? `Welcome back, ${session.user.name.split(' ')[0]}.` : 'Client Portal'}
         </h1>
-        <p className="text-stone-600 leading-relaxed">
-          A unified home for everything we manage on your behalf — the
-          docs, assets, and licenses from DocHub, plus tickets, estimates,
-          and invoices from TicketHub. One login. One place.
-        </p>
-        <div className="rounded-lg border border-stone-200 bg-white p-6 text-left text-sm text-stone-600 leading-relaxed">
-          <strong className="font-semibold text-stone-800">Under construction.</strong>{' '}
-          Phase 1 identity foundation is landing. If you already use
-          DocHub&apos;s client portal, we&apos;ll email you a migration
-          link when the switchover&apos;s ready.
-        </div>
+
+        {session ? (
+          <>
+            <p className="text-stone-600 leading-relaxed">
+              Your unified client portal is under construction. Sections for
+              assets, documents, tickets, estimates, and invoices will
+              appear here as they&apos;re migrated from DocHub and
+              TicketHub.
+            </p>
+            <form action="/api/auth/logout" method="post" className="pt-2">
+              <button
+                type="submit"
+                className="text-xs text-stone-500 hover:text-stone-700 underline"
+              >
+                sign out
+              </button>
+            </form>
+          </>
+        ) : (
+          <>
+            <p className="text-stone-600 leading-relaxed">
+              A unified home for everything we manage on your behalf — the
+              docs, assets, and licenses from DocHub, plus tickets,
+              estimates, and invoices from TicketHub. One login. One place.
+            </p>
+            <div>
+              <Link
+                href="/login"
+                className="inline-block rounded-md bg-stone-800 text-white text-sm font-medium px-5 py-2.5 hover:bg-stone-700 transition-colors"
+              >
+                Sign in
+              </Link>
+            </div>
+          </>
+        )}
+
         <div className="text-xs text-stone-500">
           Questions?{' '}
-          <Link
-            href="mailto:hello@pcc2k.com"
-            className="underline hover:text-stone-700"
-          >
+          <Link href="mailto:hello@pcc2k.com" className="underline hover:text-stone-700">
             hello@pcc2k.com
           </Link>
         </div>
