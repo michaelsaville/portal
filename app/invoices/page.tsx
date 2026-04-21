@@ -15,6 +15,7 @@ interface Invoice {
   totalAmount: number
   sentAt: string | null
   paidAt: string | null
+  stripePaymentLinkUrl: string | null
 }
 
 interface InvoicesResponse {
@@ -50,9 +51,16 @@ function statusBadge(status: string, dueDate: string | null) {
   return <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}>{label}</span>
 }
 
-export default async function InvoicesPage() {
+export default async function InvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ paid?: string }>
+}) {
   const session = await getSession()
   if (!session) redirect('/login?next=/invoices')
+
+  const params = await searchParams
+  const justPaidId = params.paid ?? null
 
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) return <NotLinkedYet title="Invoices" />
@@ -84,8 +92,21 @@ export default async function InvoicesPage() {
       ? `All paid up · ${invoices.length} recent`
       : 'no invoices on record'
 
+  const paidInvoice = justPaidId
+    ? invoices.find((i) => i.id === justPaidId)
+    : null
+
   return (
     <PortalSection title="Invoices" subtitle={subtitle} error={error}>
+      {paidInvoice && (
+        <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+          Payment received for invoice <strong>#{paidInvoice.invoiceNumber}</strong>. Thanks!
+          {paidInvoice.status !== 'PAID' && (
+            <span className="ml-1 text-emerald-700">It'll show as paid in the table below within a few seconds.</span>
+          )}
+        </div>
+      )}
+
       {!error && invoices.length === 0 && <EmptyState>Nothing on record.</EmptyState>}
 
       {invoices.length > 0 && (
@@ -98,27 +119,41 @@ export default async function InvoicesPage() {
                 <th className="px-4 py-2">Due</th>
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2 text-right">Total</th>
-                <th className="px-4 py-2">Paid</th>
+                <th className="px-4 py-2">Paid / Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-200">
-              {invoices.map((i) => (
-                <tr key={i.id}>
-                  <td className="px-4 py-2 font-mono text-xs text-stone-500">#{i.invoiceNumber}</td>
-                  <td className="px-4 py-2 text-xs text-stone-500 whitespace-nowrap">{formatDate(i.issueDate)}</td>
-                  <td className="px-4 py-2 text-xs text-stone-500 whitespace-nowrap">{formatDate(i.dueDate)}</td>
-                  <td className="px-4 py-2">{statusBadge(i.status, i.dueDate)}</td>
-                  <td className="px-4 py-2 text-right text-stone-700 whitespace-nowrap">{money(i.totalAmount)}</td>
-                  <td className="px-4 py-2 text-xs text-stone-500 whitespace-nowrap">{formatDate(i.paidAt)}</td>
-                </tr>
-              ))}
+              {invoices.map((i) => {
+                const canPay = ['SENT', 'OVERDUE'].includes(i.status) && !!i.stripePaymentLinkUrl
+                return (
+                  <tr key={i.id}>
+                    <td className="px-4 py-2 font-mono text-xs text-stone-500">#{i.invoiceNumber}</td>
+                    <td className="px-4 py-2 text-xs text-stone-500 whitespace-nowrap">{formatDate(i.issueDate)}</td>
+                    <td className="px-4 py-2 text-xs text-stone-500 whitespace-nowrap">{formatDate(i.dueDate)}</td>
+                    <td className="px-4 py-2">{statusBadge(i.status, i.dueDate)}</td>
+                    <td className="px-4 py-2 text-right text-stone-700 whitespace-nowrap">{money(i.totalAmount)}</td>
+                    <td className="px-4 py-2 text-xs whitespace-nowrap">
+                      {canPay ? (
+                        <a
+                          href={i.stripePaymentLinkUrl!}
+                          className="inline-block rounded-md bg-orange-500 px-3 py-1 text-xs font-medium text-white hover:bg-orange-600"
+                        >
+                          Pay now
+                        </a>
+                      ) : (
+                        <span className="text-stone-500">{formatDate(i.paidAt)}</span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       )}
 
       <p className="mt-8 text-xs text-stone-500">
-        Pay-in-portal is on the roadmap. Until then, use the link in the invoice email.
+        Pay online with card or ACH — the link stays valid until the invoice is paid. The same link is in the invoice email; either works.
       </p>
     </PortalSection>
   )
