@@ -1,10 +1,12 @@
 import Link from 'next/link'
 import { getSession } from '@/app/lib/portal-auth'
+import { isPortalAdminEmail } from '@/app/lib/portal-admin'
 
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
   const session = await getSession()
+  const isAdmin = isPortalAdminEmail(session?.user.email)
 
   return (
     <main className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-br from-stone-50 to-stone-100 text-stone-800">
@@ -24,6 +26,16 @@ export default async function HomePage() {
               appear here as they&apos;re migrated from DocHub and
               TicketHub.
             </p>
+            {isAdmin && (
+              <div>
+                <Link
+                  href="/admin/users"
+                  className="inline-block rounded-md border border-stone-300 bg-white text-sm font-medium px-4 py-2 text-stone-700 hover:bg-stone-100"
+                >
+                  Manage portal users →
+                </Link>
+              </div>
+            )}
             <form action="/api/auth/logout" method="post" className="pt-2">
               <button
                 type="submit"
