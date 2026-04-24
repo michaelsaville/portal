@@ -120,6 +120,7 @@ export default async function InvoicesPage({
                 <th className="px-4 py-2">Due</th>
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2 text-right">Total</th>
+                <th className="px-4 py-2">PDF</th>
                 <th className="px-4 py-2">Paid / Action</th>
               </tr>
             </thead>
@@ -133,6 +134,14 @@ export default async function InvoicesPage({
                     <td className="px-4 py-2 text-xs text-stone-500 whitespace-nowrap">{formatDate(i.dueDate)}</td>
                     <td className="px-4 py-2">{statusBadge(i.status, i.dueDate)}</td>
                     <td className="px-4 py-2 text-right text-stone-700 whitespace-nowrap">{money(i.totalAmount)}</td>
+                    <td className="px-4 py-2 text-xs whitespace-nowrap">
+                      <a
+                        href={`/api/invoices/${i.id}/pdf`}
+                        className="text-orange-600 hover:underline"
+                      >
+                        Download
+                      </a>
+                    </td>
                     <td className="px-4 py-2 text-xs whitespace-nowrap">
                       {canPay ? (
                         <a
