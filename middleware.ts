@@ -23,9 +23,10 @@ export const config = {
      *   - /login page
      *   - /api/auth/* (magic-link request, consume, logout)
      *   - /api/bff/* (service-to-service, HMAC-authed separately)
+     *   - /api/portal/* (session-gated JSON APIs — must return JSON 401 not redirect)
      *   - /api/health (liveness)
      */
-    '/((?!_next/|favicon|robots|sitemap|login|impersonate|api/auth/|api/bff/|api/health).*)',
+    '/((?!_next/|favicon|robots|sitemap|login|impersonate|api/auth/|api/bff/|api/portal/|api/health).*)',
   ],
 }
 
