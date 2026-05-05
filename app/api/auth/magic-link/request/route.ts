@@ -39,7 +39,9 @@ export async function POST(req: NextRequest) {
 
   const { email } = parsed.data
 
-  const user = await prisma.portalUser.findUnique({ where: { email } })
+  const user = await prisma.portalUser.findUnique({
+    where: { email_persona: { email, persona: 'CUSTOMER' } },
+  })
   if (!user || !user.isActive) {
     // Audit the attempt against an unknown/inactive email so we can
     // see if someone is probing, but don't leak the state to the

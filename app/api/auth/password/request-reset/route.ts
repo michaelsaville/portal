@@ -24,7 +24,9 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ ok: true })
 
   const { email } = parsed.data
-  const user = await prisma.portalUser.findUnique({ where: { email } })
+  const user = await prisma.portalUser.findUnique({
+    where: { email_persona: { email, persona: 'CUSTOMER' } },
+  })
   if (!user || !user.isActive) {
     await audit('PASSWORD_RESET_REQUEST_UNKNOWN', { data: { email } })
     return NextResponse.json({ ok: true })

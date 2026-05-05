@@ -43,7 +43,9 @@ export async function GET(req: NextRequest) {
   // portal user and makes the audit view ("who's logged in right now")
   // obvious at a glance.
   const synthetic = await prisma.portalUser.upsert({
-    where: { email: IMPERSONATION_USER_EMAIL },
+    where: {
+      email_persona: { email: IMPERSONATION_USER_EMAIL, persona: 'CUSTOMER' },
+    },
     update: {},
     create: {
       email: IMPERSONATION_USER_EMAIL,

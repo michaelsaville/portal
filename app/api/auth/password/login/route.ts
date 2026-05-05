@@ -37,7 +37,9 @@ export async function POST(req: NextRequest) {
   }
   const { email, password } = parsed.data
 
-  const user = await prisma.portalUser.findUnique({ where: { email } })
+  const user = await prisma.portalUser.findUnique({
+    where: { email_persona: { email, persona: 'CUSTOMER' } },
+  })
   const stored = user?.passwordHash ?? DUMMY_HASH
   const ok = await verifyPassword(password, stored)
 

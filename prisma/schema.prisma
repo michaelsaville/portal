@@ -25,30 +25,74 @@ datasource db {
 // Identity
 // ============================================================
 
-/// A single human identity. Deduped by email (lowercased on write). One
-/// row per person, regardless of how many clients they touch — multi-
-/// client access hangs off `PortalUserClientLink`.
+/// A single human identity. Deduped by `(email, persona)` so the same
+/// person can have a CUSTOMER account (at companies they buy from) and
+/// a VENDOR account (at companies they sell to) under one mailbox —
+/// the host-aware portal router picks which side they hit. Multi-link
+/// access hangs off `PortalUserClientLink` for customers and
+/// `PortalUserVendorLink` for vendors.
 model PortalUser {
-  id            String   @id @default(cuid())
-  email         String   @unique
+  id            String        @id @default(cuid())
+  email         String
+  /// CUSTOMER (default) → portal.pcc2k.com surfaces.
+  /// VENDOR → vendor.pcc2k.com surfaces. Per proposal §3, vendors and
+  /// customers share the codebase but never the route tree or session.
+  persona       PortalPersona @default(CUSTOMER)
   name          String
   phone         String?
-  /// scrypt hash. Null for users who only sign in via magic link or SSO.
+  /// scrypt hash. Null for users who only sign in via magic link.
+  /// Vendors always have one — password is the daily-driver auth on
+  /// vendor.pcc2k.com.
   passwordHash  String?
-  isActive      Boolean  @default(true)
+  isActive      Boolean       @default(true)
   lastLoginAt   DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   sessions         PortalSession[]
   magicLinks       PortalMagicLink[]
   clientLinks      PortalUserClientLink[]
+  vendorLinks      PortalUserVendorLink[]
   vaultSessions    PortalVaultSession[]
   auditEvents      PortalAuditEvent[]
   outboundMessages PortalOutboundMessage[]
 
+  @@unique([email, persona])
   @@index([isActive])
   @@map("portal_users")
+  @@schema("portal")
+}
+
+enum PortalPersona {
+  CUSTOMER
+  VENDOR
+
+  @@schema("portal")
+}
+
+/// Joins a PortalUser (persona=VENDOR) to a TicketHub TH_Vendor row.
+/// Mirrors PortalUserClientLink but points at the vendor side.
+model PortalUserVendorLink {
+  id           String     @id @default(cuid())
+  portalUserId String
+  portalUser   PortalUser @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
+
+  /// TicketHub TH_Vendor.id. Not an FK at the schema level because
+  /// TH lives in a different Prisma schema; integrity checked at
+  /// write time via raw lookup.
+  vendorId     String
+
+  /// Free-text role on the vendor account — currently informational
+  /// only. Future: drive permissions for multi-user vendor companies
+  /// (e.g. "BILLING" sees POs but not RFQ pricing).
+  role         String     @default("VENDOR_USER")
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([portalUserId, vendorId])
+  @@index([vendorId])
+  @@map("portal_user_vendor_links")
   @@schema("portal")
 }
 
@@ -111,6 +155,12 @@ model PortalSession {
   /// populated (last single-company selection) so toggling back is a
   /// one-click restore.
   aggregateMode  Boolean  @default(false)
+  /// Phase 7 — vendor portal active vendor. Mirrors activeClientId for
+  /// vendor-persona sessions. A given session is either customer-side
+  /// (activeClientId set, activeVendorId null) or vendor-side
+  /// (activeVendorId set, activeClientId null) — the persona of the
+  /// underlying PortalUser determines which.
+  activeVendorId String?
   userAgent      String?
   ipAddress      String?
   lastSeenAt     DateTime   @default(now())
@@ -159,6 +209,10 @@ model PortalMagicLink {
 enum MagicLinkPurpose {
   LOGIN
   PASSWORD_RESET
+  /// Phase 7 — vendor onboarding link minted from the staff side.
+  /// Lands the recipient on /vendor/invite/[token] for the set-password
+  /// flow. Single-use; consumed when the vendor sets their password.
+  VENDOR_INVITE
   ACTION_APPROVE_ESTIMATE
   ACTION_DECLINE_ESTIMATE
   ACTION_ACK_REMINDER

@@ -37,7 +37,7 @@ export async function inviteUser(input: {
   }
 
   const user = await prisma.portalUser.upsert({
-    where: { email },
+    where: { email_persona: { email, persona: 'CUSTOMER' } },
     create: { email, name },
     update: { name },
   })

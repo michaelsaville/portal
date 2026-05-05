@@ -91,7 +91,9 @@ async function main() {
     }
 
     // ── Portal user row ────────────────────────────────────────────
-    let existing = await prisma.portalUser.findUnique({ where: { email } })
+    let existing = await prisma.portalUser.findUnique({
+      where: { email_persona: { email, persona: 'CUSTOMER' } },
+    })
     if (!existing) {
       if (dryRun) {
         console.log(
