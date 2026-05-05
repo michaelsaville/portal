@@ -43,6 +43,7 @@ model PortalUser {
   sessions         PortalSession[]
   magicLinks       PortalMagicLink[]
   clientLinks      PortalUserClientLink[]
+  vaultSessions    PortalVaultSession[]
   auditEvents      PortalAuditEvent[]
   outboundMessages PortalOutboundMessage[]
 
@@ -213,5 +214,31 @@ model PortalOutboundMessage {
   @@index([toEmail, sentAt])
   @@index([portalUserId, sentAt])
   @@map("portal_outbound_messages")
+  @@schema("portal")
+}
+
+// ============================================================
+// Vault session — per-(user, client) unlock window
+// ============================================================
+//
+// PortalCredential rows live in DocHub's `public` schema (DocHub owns
+// the data + the encryption key). Portal proxies reads/writes via
+// signed BFF and tracks unlock state here, scoped to the active
+// company so unlocking at QCM does NOT carry over to QCT — defense
+// against cross-company credential leaks for multi-link users.
+
+model PortalVaultSession {
+  id            String     @id @default(cuid())
+  portalUserId  String
+  portalUser    PortalUser @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
+  /// FK at the schema level (DocHub owns Client). Always present —
+  /// portal-side gate ensures activeClientId is set before unlock.
+  clientId      String
+  expiresAt     DateTime
+  createdAt     DateTime   @default(now())
+
+  @@unique([portalUserId, clientId])
+  @@index([expiresAt])
+  @@map("portal_vault_sessions")
   @@schema("portal")
 }
