@@ -1,6 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Button } from '@/app/components/ui/Button'
+import { Card } from '@/app/components/ui/Card'
+import { Select, Textarea, TextInput } from '@/app/components/ui/Input'
+import { StatusBadge } from '@/app/components/ui/StatusBadge'
 
 type Visibility = 'PRIVATE' | 'TEAM' | 'MSP_SHARED'
 
@@ -32,18 +36,6 @@ const EMPTY_FORM = {
   url: '',
   notes: '',
   visibility: 'PRIVATE' as Visibility,
-}
-
-const VISIBILITY_LABEL: Record<Visibility, string> = {
-  PRIVATE: 'Private',
-  TEAM: 'Team',
-  MSP_SHARED: 'Shared with PCC2K',
-}
-
-const VISIBILITY_PILL: Record<Visibility, string> = {
-  PRIVATE: 'bg-stone-200 text-stone-700',
-  TEAM: 'bg-sky-100 text-sky-800',
-  MSP_SHARED: 'bg-violet-100 text-violet-800',
 }
 
 export function VaultClient({
@@ -272,7 +264,7 @@ export function VaultClient({
       )}
 
       {/* Unlock card */}
-      <div className="rounded-lg border border-stone-200 bg-white p-4">
+      <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-sm font-medium text-stone-800">
@@ -285,71 +277,56 @@ export function VaultClient({
             </div>
           </div>
           {unlocked ? (
-            <button
-              type="button"
-              onClick={lock}
-              className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50"
-            >
+            <Button variant="secondary" onClick={lock}>
               Lock
-            </button>
+            </Button>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              <input
+            <div className="flex flex-wrap items-end gap-2">
+              <TextInput
                 type="password"
                 placeholder="Portal password"
                 value={unlockPassword}
                 onChange={(e) => setUnlockPassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && unlock()}
-                className="w-56 rounded-md border border-stone-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-stone-400"
+                wrapperClassName="w-56"
               />
-              <button
-                type="button"
-                onClick={unlock}
-                disabled={unlocking}
-                className="rounded-md bg-stone-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700 disabled:opacity-50"
-              >
+              <Button onClick={unlock} disabled={unlocking}>
                 {unlocking ? 'Unlocking…' : 'Unlock'}
-              </button>
+              </Button>
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {unlocked && (
-        <div className="rounded-lg border border-stone-200 bg-white p-4">
+        <Card>
           {/* Search + filter + add */}
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <input
+          <div className="mb-4 flex flex-wrap items-end gap-2">
+            <TextInput
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search credentials…"
-              className="w-60 rounded-md border border-stone-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-stone-400"
+              wrapperClassName="w-60"
             />
-            <select
+            <Select
               value={filter}
               onChange={(e) => setFilter(e.target.value as 'ALL' | Visibility)}
-              className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm"
+              wrapperClassName="w-48"
             >
               <option value="ALL">All credentials</option>
               <option value="PRIVATE">Private only</option>
               <option value="TEAM">Team only</option>
               <option value="MSP_SHARED">Shared with PCC2K</option>
-            </select>
+            </Select>
             <div className="flex-1" />
             {!showAdd && (
-              <button
-                type="button"
-                onClick={() => setShowAdd(true)}
-                className="rounded-md bg-stone-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700"
-              >
-                + Add credential
-              </button>
+              <Button onClick={() => setShowAdd(true)}>+ Add credential</Button>
             )}
           </div>
 
           {showAdd && (
-            <div className="mb-4 rounded-md border border-stone-200 bg-stone-50 p-3">
+            <Card tone="muted" padding="sm" className="mb-4">
               <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-stone-500">
                 New credential
               </div>
@@ -362,17 +339,18 @@ export function VaultClient({
                   setAddForm({ ...EMPTY_FORM })
                 }}
                 saveLabel="Add"
-                showVisibility
               />
-            </div>
+            </Card>
           )}
 
           {filtered.length === 0 && (
-            <div className="rounded-md border border-dashed border-stone-300 bg-white p-8 text-center text-sm text-stone-500">
-              {items.length === 0
-                ? 'No credentials yet — click + Add credential to get started.'
-                : 'Nothing matches your filter.'}
-            </div>
+            <Card dashed padding="lg" className="text-center">
+              <p className="text-sm text-stone-500">
+                {items.length === 0
+                  ? 'No credentials yet — click + Add credential to get started.'
+                  : 'Nothing matches your filter.'}
+              </p>
+            </Card>
           )}
 
           <ul className="divide-y divide-stone-200">
@@ -388,7 +366,6 @@ export function VaultClient({
                       onSave={() => saveEdit(item.id)}
                       onCancel={() => setEditId(null)}
                       saveLabel="Save"
-                      showVisibility
                       passwordPlaceholder="Leave blank to keep"
                       totpPlaceholder="Leave blank to keep"
                     />
@@ -399,31 +376,19 @@ export function VaultClient({
                           <span className="text-sm font-medium text-stone-800">
                             {item.label}
                           </span>
-                          <span
-                            className={`rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${VISIBILITY_PILL[item.visibility]}`}
-                          >
-                            {VISIBILITY_LABEL[item.visibility]}
-                          </span>
+                          <StatusBadge status={item.visibility} kind="vault-visibility" />
                           {!isMine && item.ownedByUserId && (
                             <span className="text-[11px] text-stone-500">· shared</span>
                           )}
                         </div>
                         {editable && (
                           <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => startEdit(item)}
-                              className="rounded border border-stone-300 px-2 py-0.5 text-xs text-stone-700 hover:bg-stone-50"
-                            >
+                            <Button variant="secondary" size="sm" onClick={() => startEdit(item)}>
                               Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => deleteItem(item.id)}
-                              className="rounded border border-rose-300 px-2 py-0.5 text-xs text-rose-700 hover:bg-rose-50"
-                            >
+                            </Button>
+                            <Button variant="danger" size="sm" onClick={() => deleteItem(item.id)}>
                               Delete
-                            </button>
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -451,13 +416,9 @@ export function VaultClient({
                       )}
                       <div className="mt-2 flex flex-wrap items-center gap-3">
                         {!revealed[item.id] ? (
-                          <button
-                            type="button"
-                            onClick={() => reveal(item.id)}
-                            className="rounded border border-stone-300 px-2 py-0.5 text-xs text-stone-700 hover:bg-stone-50"
-                          >
+                          <Button variant="secondary" size="sm" onClick={() => reveal(item.id)}>
                             Reveal
-                          </button>
+                          </Button>
                         ) : (
                           <>
                             {revealed[item.id].password && (
@@ -514,7 +475,7 @@ export function VaultClient({
               )
             })}
           </ul>
-        </div>
+        </Card>
       )}
     </div>
   )
@@ -526,7 +487,6 @@ interface FormProps {
   onSave: () => void
   onCancel: () => void
   saveLabel: string
-  showVisibility?: boolean
   passwordPlaceholder?: string
   totpPlaceholder?: string
 }
@@ -537,77 +497,57 @@ function CredentialForm({
   onSave,
   onCancel,
   saveLabel,
-  showVisibility,
   passwordPlaceholder = 'Password',
   totpPlaceholder = 'TOTP secret (base32, optional)',
 }: FormProps) {
   const set = (patch: Partial<typeof EMPTY_FORM>) => onChange({ ...form, ...patch })
   return (
     <div className="flex flex-col gap-2">
-      <input
+      <TextInput
         placeholder="Label *"
         value={form.label}
         onChange={(e) => set({ label: e.target.value })}
-        className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-stone-400"
       />
-      <input
+      <TextInput
         placeholder="Username"
         value={form.username}
         onChange={(e) => set({ username: e.target.value })}
-        className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-stone-400"
       />
-      <input
+      <TextInput
         type="password"
         placeholder={passwordPlaceholder}
         value={form.password}
         onChange={(e) => set({ password: e.target.value })}
-        className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-stone-400"
       />
-      <input
+      <TextInput
         placeholder={totpPlaceholder}
         value={form.totp}
         onChange={(e) => set({ totp: e.target.value })}
-        className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-stone-400"
       />
-      <input
+      <TextInput
         placeholder="URL"
         value={form.url}
         onChange={(e) => set({ url: e.target.value })}
-        className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-stone-400"
       />
-      <textarea
+      <Textarea
         placeholder="Notes"
         value={form.notes}
         onChange={(e) => set({ notes: e.target.value })}
         rows={2}
-        className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-stone-400"
       />
-      {showVisibility && (
-        <select
-          value={form.visibility}
-          onChange={(e) => set({ visibility: e.target.value as Visibility })}
-          className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm"
-        >
-          <option value="PRIVATE">Private — only me</option>
-          <option value="TEAM">Team — everyone in this company</option>
-          <option value="MSP_SHARED">Shared with PCC2K</option>
-        </select>
-      )}
+      <Select
+        value={form.visibility}
+        onChange={(e) => set({ visibility: e.target.value as Visibility })}
+      >
+        <option value="PRIVATE">Private — only me</option>
+        <option value="TEAM">Team — everyone in this company</option>
+        <option value="MSP_SHARED">Shared with PCC2K</option>
+      </Select>
       <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={onSave}
-          className="rounded-md bg-stone-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700"
-        >
-          {saveLabel}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50"
-        >
+        <Button onClick={onSave}>{saveLabel}</Button>
+        <Button variant="secondary" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
   )

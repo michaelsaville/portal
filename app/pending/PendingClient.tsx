@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Button } from '@/app/components/ui/Button'
+import { Card } from '@/app/components/ui/Card'
 
 interface ReminderData {
   id: string
@@ -98,42 +100,40 @@ export function PendingClient() {
 
   if (loading) {
     return (
-      <p className="rounded-lg border border-dashed border-stone-300 bg-white p-8 text-center text-sm text-stone-500">
-        Loading…
-      </p>
+      <Card dashed padding="lg" className="text-center">
+        <p className="text-sm text-stone-500">Loading…</p>
+      </Card>
     )
   }
 
   if (error) {
     return (
-      <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-        <p>{error}</p>
-        <button
-          type="button"
-          onClick={load}
-          className="mt-2 rounded border border-rose-300 px-2 py-1 text-xs text-rose-800 hover:bg-rose-100"
-        >
+      <Card tone="danger">
+        <p className="text-sm text-rose-800">{error}</p>
+        <Button variant="danger" size="sm" className="mt-2" onClick={load}>
           Retry
-        </button>
-      </div>
+        </Button>
+      </Card>
     )
   }
 
   if (unmapped) {
     return (
-      <p className="rounded-lg border border-dashed border-stone-300 bg-white p-8 text-center text-sm text-stone-600">
-        We haven't matched your portal account to a contact in our ticket
-        system yet. PCC2K can set that up — once linked, your reminders and
-        estimates will show here.
-      </p>
+      <Card dashed padding="lg" className="text-center">
+        <p className="text-sm text-stone-600">
+          We haven&apos;t matched your portal account to a contact in our ticket
+          system yet. PCC2K can set that up — once linked, your reminders and
+          estimates will show here.
+        </p>
+      </Card>
     )
   }
 
   if (reminders.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-emerald-300 bg-emerald-50 p-8 text-center text-sm text-emerald-800">
-        All caught up — no pending items.
-      </div>
+      <Card dashed tone="success" padding="lg" className="text-center">
+        <p className="text-sm text-emerald-800">All caught up — no pending items.</p>
+      </Card>
     )
   }
 
@@ -143,10 +143,8 @@ export function PendingClient() {
         const action = pendingAction[r.id]
         const err = rowError[r.id]
         return (
-          <li
-            key={r.id}
-            className="rounded-lg border border-stone-200 bg-white p-4"
-          >
+          <li key={r.id}>
+          <Card>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -189,31 +187,26 @@ export function PendingClient() {
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {r.actionUrl && (
-                <a
-                  href={r.actionUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-md bg-stone-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-stone-700"
-                >
+                <Button size="sm" href={r.actionUrl} external>
                   View / Take action
-                </a>
+                </Button>
               )}
-              <button
-                type="button"
+              <Button
+                variant="success"
+                size="sm"
                 onClick={() => act(r.id, 'ack')}
                 disabled={!!action}
-                className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 {action === 'ack' ? 'Marking…' : 'Acknowledged'}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => act(r.id, 'snooze')}
                 disabled={!!action}
-                className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
               >
                 {action === 'snooze' ? 'Snoozing…' : 'Snooze 3 days'}
-              </button>
+              </Button>
               {err && (
                 <span className="text-xs text-rose-700">
                   {err} —{' '}
@@ -227,6 +220,7 @@ export function PendingClient() {
                 </span>
               )}
             </div>
+          </Card>
           </li>
         )
       })}

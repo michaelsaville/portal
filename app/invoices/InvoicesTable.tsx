@@ -1,6 +1,8 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
+import { Button } from '@/app/components/ui/Button'
+import { StatusBadge } from '@/app/components/ui/StatusBadge'
 
 interface Invoice {
   id: string
@@ -32,31 +34,18 @@ function formatDate(iso: string | null) {
   })
 }
 
-function statusBadge(status: string, dueDate: string | null) {
-  const map: Record<string, string> = {
-    SENT: 'bg-sky-100 text-sky-800',
-    VIEWED: 'bg-sky-100 text-sky-800',
-    PAID: 'bg-emerald-100 text-emerald-800',
-    OVERDUE: 'bg-red-100 text-red-700',
-    VOID: 'bg-stone-100 text-stone-600',
-  }
-  let label = status.toLowerCase()
-  let cls = map[status] ?? 'bg-stone-100 text-stone-700'
+function renderInvoiceStatus(status: string, dueDate: string | null) {
+  // Backend reports SENT for past-due invoices until the cron flips
+  // them OVERDUE. Show "past due" + the OVERDUE palette inline so the
+  // user sees the right cue without waiting for the cron tick.
   if (
     status === 'SENT' &&
     dueDate &&
     new Date(dueDate).getTime() < Date.now()
   ) {
-    label = 'past due'
-    cls = map.OVERDUE
+    return <StatusBadge status="OVERDUE" kind="invoice" label="past due" />
   }
-  return (
-    <span
-      className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}
-    >
-      {label}
-    </span>
-  )
+  return <StatusBadge status={status} kind="invoice" />
 }
 
 const PAYABLE_STATUSES = new Set(['SENT', 'VIEWED', 'OVERDUE'])
@@ -202,7 +191,7 @@ export function InvoicesTable({
                     {formatDate(i.dueDate)}
                   </td>
                   <td className="px-4 py-2">
-                    {statusBadge(i.status, i.dueDate)}
+                    {renderInvoiceStatus(i.status, i.dueDate)}
                   </td>
                   <td className="px-4 py-2 text-right text-stone-700 whitespace-nowrap">
                     {money(i.totalAmount)}
@@ -217,12 +206,9 @@ export function InvoicesTable({
                   </td>
                   <td className="px-4 py-2 text-xs whitespace-nowrap">
                     {canPayThis ? (
-                      <a
-                        href={i.stripePaymentLinkUrl!}
-                        className="inline-block rounded-md bg-orange-500 px-3 py-1 text-xs font-medium text-white hover:bg-orange-600"
-                      >
+                      <Button variant="pay" size="sm" href={i.stripePaymentLinkUrl!} external>
                         Pay this
-                      </a>
+                      </Button>
                     ) : (
                       <span className="text-stone-500">
                         {formatDate(i.paidAt)}
@@ -262,16 +248,11 @@ export function InvoicesTable({
                   Pay disabled in staff impersonation
                 </span>
               ) : (
-                <button
-                  type="button"
-                  onClick={payNow}
-                  disabled={isPending}
-                  className="rounded-md bg-orange-500 px-5 py-2 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-60"
-                >
+                <Button variant="pay" size="lg" onClick={payNow} disabled={isPending}>
                   {isPending
                     ? 'Preparing payment…'
                     : `Pay ${money(selectedTotal)} now`}
-                </button>
+                </Button>
               )}
             </div>
           </div>

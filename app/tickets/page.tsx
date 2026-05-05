@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
 import PortalSection, { EmptyState, NotLinkedYet } from '@/app/components/PortalSection'
+import { StatusBadge } from '@/app/components/ui/StatusBadge'
 import {
   resolveActiveClientId,
   resolveAllLinkedClientIds,
@@ -41,23 +42,6 @@ function formatDate(iso: string) {
   if (days === 1) return 'yesterday'
   if (days < 7) return `${days}d ago`
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function statusBadge(status: string) {
-  const map: Record<string, string> = {
-    NEW: 'bg-sky-100 text-sky-800',
-    OPEN: 'bg-sky-100 text-sky-800',
-    IN_PROGRESS: 'bg-amber-100 text-amber-800',
-    WAITING: 'bg-violet-100 text-violet-800',
-    WAITING_ON_CLIENT: 'bg-violet-100 text-violet-800',
-    RESOLVED: 'bg-emerald-100 text-emerald-800',
-    CLOSED: 'bg-stone-100 text-stone-600',
-  }
-  return (
-    <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${map[status] ?? 'bg-stone-100 text-stone-700'}`}>
-      {status.replace(/_/g, ' ').toLowerCase()}
-    </span>
-  )
 }
 
 function priorityBadge(priority: string) {
@@ -227,7 +211,7 @@ function TicketsTable({
                 <td className="px-4 py-2 text-stone-700 whitespace-nowrap">{t._client}</td>
               )}
               <td className="px-4 py-2">
-                {statusBadge(t.status)}
+                <StatusBadge status={t.status} kind="ticket" />
                 {priorityBadge(t.priority)}
               </td>
               <td className="px-4 py-2 text-stone-700">{t.assignedTo?.name ?? '—'}</td>
