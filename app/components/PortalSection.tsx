@@ -1,7 +1,4 @@
-import Link from 'next/link'
-import { prisma } from '@/app/lib/prisma'
-import { getSession } from '@/app/lib/portal-auth'
-import ClientSwitcher from './ClientSwitcher'
+import { getPortalContext } from '@/app/lib/portal-context'
 
 interface Props {
   title: string
@@ -9,9 +6,8 @@ interface Props {
   subtitle?: string | null
   /** Error banner at the top of the body; falsy values render nothing. */
   error?: string | null
-  /** Back-link destination. Defaults to "/" (portal home). */
+  /** When set, a small back-link renders above the title (detail → list). */
   backHref?: string
-  /** Back-link label. */
   backLabel?: string
   /** Max body width class. Defaults to `max-w-5xl`. */
   maxWidth?: string
@@ -19,79 +15,52 @@ interface Props {
 }
 
 /**
- * Shared page chrome for portal sections. Nine+ pages duplicated this
- * header/back-link/error pattern before the extraction; new sections
- * should prefer this over re-templating.
+ * Shared content chrome for portal sections — title, subtitle, error
+ * banner. Sits inside the global PortalShell which provides the
+ * sidebar, company switcher, and mobile drawer; this component is
+ * scoped to the page body.
  *
- * Async so we can render the ClientSwitcher for users with multiple
- * PortalUserClientLink rows. Single-link users pay zero UI cost (the
- * switcher falls back to null).
+ * The active-company name is auto-prefixed onto the subtitle (e.g.
+ * "Queen City Motors · 5 awaiting your review") as one of the three
+ * defenses-in-depth cues for multi-company users — sidebar chip,
+ * subtitle prefix, and (later) browser title.
  */
 export default async function PortalSection({
   title,
   subtitle,
   error,
-  backHref = '/',
+  backHref,
   backLabel = '← back',
   maxWidth = 'max-w-5xl',
   children,
 }: Props) {
-  const session = await getSession()
-  const isImpersonating = !!session?.impersonatedStaffEmail
-  let switcher: React.ReactNode = null
-  // Skip the whole link lookup when the session is a staff impersonation
-  // tunnel — the switcher doesn't apply (staff tunnel to one specific
-  // client at a time) and surfacing it would just confuse the banner.
-  if (session && !isImpersonating) {
-    const links = await prisma.portalUserClientLink.findMany({
-      where: { portalUserId: session.user.id },
-      select: { clientId: true, role: true },
-      orderBy: { createdAt: 'asc' },
-    })
-    if (links.length > 1) {
-      // Same-DB raw query — DocHub's public schema isn't in the portal's
-      // `schemas` list, but Client rows live next door. Prisma tagged
-      // templates don't accept array params cleanly, so use the
-      // Postgres ANY($1::text[]) form via $queryRawUnsafe.
-      const ids = links.map((l) => l.clientId)
-      const rows = await prisma.$queryRawUnsafe<{ id: string; name: string }[]>(
-        `SELECT id, name FROM public."Client" WHERE id = ANY($1::text[])`,
-        ids,
-      )
-      const nameMap = new Map<string, string>(rows.map((r) => [r.id, r.name]))
-      const enriched = links
-        .map((l) => ({
-          clientId: l.clientId,
-          role: l.role,
-          name: nameMap.get(l.clientId) ?? 'Unknown client',
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name))
-      const activeId = session.activeClientId ?? enriched[0]?.clientId ?? ''
-      switcher = <ClientSwitcher links={enriched} activeClientId={activeId} />
-    }
-  }
-
-  // Banner rendered in the root layout — don't duplicate here. We still
-  // suppress the switcher above for impersonation sessions, which is
-  // enough chrome difference for PortalSection to care about.
-  void isImpersonating
+  const ctx = await getPortalContext()
+  const activeName = ctx?.activeCompany?.name ?? null
+  const showPrefix = !!activeName && (ctx?.links.length ?? 0) > 1
+  const finalSubtitle = subtitle
+    ? showPrefix
+      ? `${activeName} · ${subtitle}`
+      : subtitle
+    : showPrefix
+      ? activeName
+      : null
 
   return (
-    <main className="min-h-screen bg-stone-50 p-6 sm:p-10">
+    <div className="p-6 sm:p-10">
       <div className={`${maxWidth} mx-auto`}>
-        <header className="mb-6 flex items-baseline justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="font-serif text-3xl font-bold text-stone-800">{title}</h1>
-            {subtitle && (
-              <p className="mt-1 text-sm text-stone-600">{subtitle}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-3 ml-auto">
-            {switcher}
-            <Link href={backHref} className="text-sm text-stone-600 hover:text-stone-800">
-              {backLabel}
-            </Link>
-          </div>
+        {backHref && (
+          <a
+            href={backHref}
+            className="mb-2 inline-block text-sm text-stone-500 hover:text-stone-800"
+          >
+            {backLabel}
+          </a>
+        )}
+        <header className="mb-6">
+          <h1 className="font-serif text-3xl font-bold text-stone-800">{title}</h1>
+          {finalSubtitle && (
+            <p className="mt-1 text-sm text-stone-600">{finalSubtitle}</p>
+          )}
         </header>
 
         {error && (
@@ -102,7 +71,7 @@ export default async function PortalSection({
 
         {children}
       </div>
-    </main>
+    </div>
   )
 }
 
