@@ -8,6 +8,10 @@ interface SectionItem {
   href: string
   label: string
 }
+
+/** Sections that work in aggregate mode — everything else gets a
+ *  "Switch to a single company" stub when aggregate is active. */
+const AGGREGABLE_HREFS = new Set(['/', '/tickets', '/invoices'])
 interface SectionGroup {
   label: string | null
   items: SectionItem[]
@@ -41,7 +45,7 @@ const ADMIN_ITEMS: SectionItem[] = [
 ]
 
 export default function PortalSidebar({ ctx }: { ctx: PortalContext }) {
-  const { session, links, activeCompany, isImpersonating, isAdmin } = ctx
+  const { session, links, activeCompany, aggregate, isImpersonating, isAdmin } = ctx
 
   const groups: SectionGroup[] = [
     { label: null, items: ACTIVE_GROUP },
@@ -75,6 +79,8 @@ export default function PortalSidebar({ ctx }: { ctx: PortalContext }) {
           <CompanySwitcher
             links={links}
             activeClientId={activeCompany?.id ?? links[0]!.clientId}
+            aggregateActive={aggregate.active}
+            aggregateEligible={aggregate.eligible}
           />
         ) : (
           <div className="rounded-md border border-dashed border-stone-300 bg-stone-50 p-2 text-xs text-stone-500">
@@ -93,17 +99,24 @@ export default function PortalSidebar({ ctx }: { ctx: PortalContext }) {
               </div>
             )}
             <ul>
-              {g.items.map((it) => (
-                <li key={it.href}>
-                  <Link
-                    href={it.href}
-                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-stone-700 hover:bg-stone-100 hover:text-stone-900"
-                  >
-                    <span>{it.label}</span>
-                    {it.href === '/pending' && <PendingBadge />}
-                  </Link>
-                </li>
-              ))}
+              {g.items.map((it) => {
+                const dim = aggregate.active && !AGGREGABLE_HREFS.has(it.href)
+                return (
+                  <li key={it.href}>
+                    <Link
+                      href={it.href}
+                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-stone-100 ${
+                        dim
+                          ? 'text-stone-400 hover:text-stone-600'
+                          : 'text-stone-700 hover:text-stone-900'
+                      }`}
+                    >
+                      <span>{it.label}</span>
+                      {it.href === '/pending' && !aggregate.active && <PendingBadge />}
+                    </Link>
+                  </li>
+                )
+              })}
             </ul>
           </div>
         ))}

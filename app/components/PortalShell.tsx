@@ -32,12 +32,32 @@ export default async function PortalShell({ children }: { children: React.ReactN
           <div className="font-mono text-[10px] uppercase tracking-widest text-stone-500">
             PCC2K Portal
           </div>
-          {ctx.activeCompany && (
+          {ctx.aggregate.active ? (
+            <div className="ml-auto text-xs text-stone-600">
+              All companies · {ctx.aggregate.count}
+            </div>
+          ) : ctx.activeCompany ? (
             <div className="ml-auto truncate text-xs text-stone-600" title={ctx.activeCompany.name}>
               {ctx.activeCompany.name}
             </div>
-          )}
+          ) : null}
         </header>
+
+        {/* Aggregate-mode chrome strip (rendered on every page) */}
+        {ctx.aggregate.active && (
+          <div
+            className="border-b border-stone-200 px-4 py-2 text-xs text-stone-700"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(45deg, #f5f5f4 0 8px, #fafaf9 8px 16px)',
+            }}
+          >
+            <span className="font-medium">Aggregate view</span> across {ctx.aggregate.count}{' '}
+            companies — Tickets and Invoices fan out across every linked company.
+            Other sections need a single company; pick one from the switcher to view.
+          </div>
+        )}
+
         <main className="min-w-0 flex-1">{children}</main>
       </div>
     </div>

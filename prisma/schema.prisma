@@ -103,6 +103,14 @@ model PortalSession {
   /// For multi-client users: which client they've "switched to" in UI.
   /// Null for single-client users. Updated via POST /api/portal/switch.
   activeClientId String?
+
+  /// Phase 4 — when true, the user has chosen "All companies" mode in
+  /// the switcher. Tickets and Invoices fan-out across every linked
+  /// PortalUserClientLink for the user; everything else gates with a
+  /// "switch to a single company" stub.  activeClientId stays
+  /// populated (last single-company selection) so toggling back is a
+  /// one-click restore.
+  aggregateMode  Boolean  @default(false)
   userAgent      String?
   ipAddress      String?
   lastSeenAt     DateTime   @default(now())

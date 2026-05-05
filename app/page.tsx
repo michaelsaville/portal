@@ -41,6 +41,29 @@ export default async function HomePage() {
   const ctx = await getPortalContext()
   const firstName = session.user.name.split(' ')[0]
   const activeName = ctx?.activeCompany?.name ?? null
+  const aggregate = ctx?.aggregate.active ?? false
+
+  const cards = aggregate
+    ? [
+        {
+          href: '/tickets',
+          title: 'Tickets',
+          blurb: `Across ${ctx?.aggregate.count ?? 0} companies`,
+        },
+        {
+          href: '/invoices',
+          title: 'Invoices',
+          blurb: `Across ${ctx?.aggregate.count ?? 0} companies`,
+        },
+      ]
+    : [
+        { href: '/account', title: 'Account', blurb: 'Balance, payments, and aging' },
+        { href: '/tickets', title: 'Tickets', blurb: 'Open requests and history' },
+        { href: '/invoices', title: 'Invoices', blurb: 'Open balances and recent payments' },
+        { href: '/estimates', title: 'Estimates', blurb: 'Awaiting your review' },
+        { href: '/documents', title: 'Documents', blurb: 'Reports, agreements, runbooks' },
+        { href: '/assets', title: 'Assets', blurb: 'Managed devices and equipment' },
+      ]
 
   return (
     <div className="p-6 sm:p-10">
@@ -49,42 +72,19 @@ export default async function HomePage() {
           <h1 className="font-serif text-3xl font-bold text-stone-800">
             Welcome back, {firstName}.
           </h1>
-          {activeName && (
+          {aggregate ? (
+            <p className="mt-1 text-sm text-stone-600">
+              Aggregate view across {ctx?.aggregate.count} companies
+            </p>
+          ) : activeName ? (
             <p className="mt-1 text-sm text-stone-600">{activeName}</p>
-          )}
+          ) : null}
         </header>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <HomeCard
-            href="/account"
-            title="Account"
-            blurb="Balance, payments, and aging"
-          />
-          <HomeCard
-            href="/tickets"
-            title="Tickets"
-            blurb="Open requests and history"
-          />
-          <HomeCard
-            href="/invoices"
-            title="Invoices"
-            blurb="Open balances and recent payments"
-          />
-          <HomeCard
-            href="/estimates"
-            title="Estimates"
-            blurb="Awaiting your review"
-          />
-          <HomeCard
-            href="/documents"
-            title="Documents"
-            blurb="Reports, agreements, runbooks"
-          />
-          <HomeCard
-            href="/assets"
-            title="Assets"
-            blurb="Managed devices and equipment"
-          />
+          {cards.map((c) => (
+            <HomeCard key={c.href} {...c} />
+          ))}
         </div>
 
         <div className="mt-6 text-xs text-stone-500">

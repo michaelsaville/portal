@@ -3,6 +3,7 @@ import { getSession } from '@/app/lib/portal-auth'
 import { prisma } from '@/app/lib/prisma'
 import { hasPermission } from '@/app/lib/permissions'
 import PortalSection, { NotLinkedYet } from '@/app/components/PortalSection'
+import AggregateNotSupported from '@/app/components/AggregateNotSupported'
 import { VaultClient } from './VaultClient'
 
 export const dynamic = 'force-dynamic'
@@ -10,6 +11,7 @@ export const dynamic = 'force-dynamic'
 export default async function VaultPage() {
   const session = await getSession()
   if (!session) redirect('/login?next=/vault')
+  if (session.aggregateMode) return <AggregateNotSupported title="Vault" />
   const clientId = session.activeClientId
   if (!clientId) {
     return <NotLinkedYet title="Vault" />

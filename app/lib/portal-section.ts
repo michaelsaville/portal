@@ -24,6 +24,21 @@ export async function resolveActiveClientId(
 }
 
 /**
+ * Return every DocHub Client.id the current portal user has a link to.
+ * Used by the aggregate-mode (Phase 4) fan-out for tickets and invoices.
+ */
+export async function resolveAllLinkedClientIds(
+  session: ResolvedSession,
+): Promise<string[]> {
+  const links = await prisma.portalUserClientLink.findMany({
+    where: { portalUserId: session.user.id },
+    select: { clientId: true },
+    orderBy: { createdAt: 'asc' },
+  })
+  return links.map((l) => l.clientId)
+}
+
+/**
  * Look up the DocHub Client.name for a given DocHub Client.id via raw
  * SQL. Portal's Prisma client doesn't know about the `public` schema,
  * but it's the same Postgres so `$queryRaw` works. Returns null if the

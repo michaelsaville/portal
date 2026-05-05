@@ -129,6 +129,10 @@ export interface ResolvedSession {
   sessionId: string
   user: PortalUser
   activeClientId: string | null
+  /** Phase 4: when true, the user is browsing in "All companies" mode.
+   *  Tickets and Invoices fan out across every linked client; every
+   *  other section gates with a "switch to a single company" stub. */
+  aggregateMode: boolean
   /** Non-null for "view as client" staff tunnels from TicketHub. */
   impersonatedStaffEmail: string | null
 }
@@ -175,6 +179,7 @@ export async function getSession(): Promise<ResolvedSession | null> {
     sessionId: session.id,
     user: session.portalUser,
     activeClientId: session.activeClientId,
+    aggregateMode: session.aggregateMode,
     impersonatedStaffEmail: session.impersonatedStaffEmail,
   }
 }

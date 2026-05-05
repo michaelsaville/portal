@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
 import PortalSection, { EmptyState, NotLinkedYet } from '@/app/components/PortalSection'
+import AggregateNotSupported from '@/app/components/AggregateNotSupported'
 import { resolveActiveClientId } from '@/app/lib/portal-section'
 
 export const dynamic = 'force-dynamic'
@@ -37,6 +38,7 @@ function Tag({ children, color }: { children: React.ReactNode; color: string }) 
 export default async function ContactsPage() {
   const session = await getSession()
   if (!session) redirect('/login?next=/contacts')
+  if (session.aggregateMode) return <AggregateNotSupported title="Contacts" />
 
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) return <NotLinkedYet title="Contacts" />

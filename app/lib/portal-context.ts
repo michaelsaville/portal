@@ -2,6 +2,10 @@ import 'server-only'
 import { prisma } from '@/app/lib/prisma'
 import { getSession, type ResolvedSession } from '@/app/lib/portal-auth'
 import { isPortalAdminEmail } from '@/app/lib/portal-admin'
+import { PORTAL_ROLES } from '@/app/lib/portal-roles'
+
+/** The permission presets that "aggregate mode" actually serves. */
+const AGGREGABLE_PERMISSIONS = ['tickets', 'invoices', 'payments'] as const
 
 export interface CompanyLink {
   clientId: string
@@ -15,10 +19,22 @@ export interface ActiveCompany {
   role: string
 }
 
+export interface AggregateState {
+  /** True when the session is currently in "All companies" mode. */
+  active: boolean
+  /** True when the user has ≥2 links sharing a role whose preset
+   *  includes tickets, invoices or payments — i.e. the modes that
+   *  aggregation actually unlocks. */
+  eligible: boolean
+  /** Number of companies the aggregate covers when active. */
+  count: number
+}
+
 export interface PortalContext {
   session: ResolvedSession
   links: CompanyLink[]
   activeCompany: ActiveCompany | null
+  aggregate: AggregateState
   isImpersonating: boolean
   isAdmin: boolean
 }
@@ -39,6 +55,12 @@ export async function getPortalContext(): Promise<PortalContext | null> {
 
   const isImpersonating = !!session.impersonatedStaffEmail
 
+  const inactiveAggregate: AggregateState = {
+    active: false,
+    eligible: false,
+    count: 0,
+  }
+
   // Impersonation tunnels are pinned to a single client — don't surface
   // the switcher even if the underlying user has multiple links.
   if (isImpersonating) {
@@ -57,6 +79,7 @@ export async function getPortalContext(): Promise<PortalContext | null> {
       session,
       links: [],
       activeCompany,
+      aggregate: inactiveAggregate,
       isImpersonating,
       isAdmin: false,
     }
@@ -94,11 +117,41 @@ export async function getPortalContext(): Promise<PortalContext | null> {
     ? { id: activeLink.clientId, name: activeLink.name, role: activeLink.role }
     : null
 
+  const aggregate = computeAggregate(enriched, session.aggregateMode)
+
   return {
     session,
     links: enriched,
     activeCompany,
+    aggregate,
     isImpersonating,
     isAdmin: isPortalAdminEmail(session.user.email),
   }
+}
+
+function computeAggregate(
+  links: CompanyLink[],
+  sessionAggregateMode: boolean,
+): AggregateState {
+  // Eligibility: ≥ 2 links sharing a role whose preset includes any
+  // aggregable permission (tickets / invoices / payments). One BILLING
+  // + one TECHNICAL doesn't unlock — they have no shared aggregated
+  // surfaces.
+  if (links.length < 2) return { active: false, eligible: false, count: 0 }
+  const byRole = new Map<string, number>()
+  for (const l of links) byRole.set(l.role, (byRole.get(l.role) ?? 0) + 1)
+  let eligible = false
+  for (const [role, count] of byRole) {
+    if (count < 2) continue
+    const preset = PORTAL_ROLES[role as keyof typeof PORTAL_ROLES]?.preset as
+      | Record<string, boolean | undefined>
+      | undefined
+    if (!preset) continue
+    if (AGGREGABLE_PERMISSIONS.some((p) => preset[p])) {
+      eligible = true
+      break
+    }
+  }
+  const active = eligible && sessionAggregateMode
+  return { active, eligible, count: active ? links.length : 0 }
 }

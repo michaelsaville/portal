@@ -2,7 +2,12 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
 import PortalSection, { EmptyState, NotLinkedYet } from '@/app/components/PortalSection'
-import { resolveActiveClientId, resolveDochubClientName } from '@/app/lib/portal-section'
+import {
+  resolveActiveClientId,
+  resolveAllLinkedClientIds,
+  resolveDochubClientName,
+} from '@/app/lib/portal-section'
+import { InvoicesTable } from './InvoicesTable'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,25 +35,39 @@ function money(cents: number) {
   return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function formatDate(iso: string | null) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function statusBadge(status: string, dueDate: string | null) {
-  const map: Record<string, string> = {
-    SENT: 'bg-sky-100 text-sky-800',
-    PAID: 'bg-emerald-100 text-emerald-800',
-    OVERDUE: 'bg-red-100 text-red-700',
-    VOID: 'bg-stone-100 text-stone-600',
+async function fetchInvoicesForClient(clientId: string) {
+  const clientName = await resolveDochubClientName(clientId)
+  if (!clientName) {
+    return {
+      clientId,
+      clientName: null,
+      invoices: [] as Invoice[],
+      balanceCents: 0,
+      error: 'stale link',
+    }
   }
-  let label = status.toLowerCase()
-  let cls = map[status] ?? 'bg-stone-100 text-stone-700'
-  if (status === 'SENT' && dueDate && new Date(dueDate).getTime() < Date.now()) {
-    label = 'past due'
-    cls = map.OVERDUE
+  try {
+    const data = await signedPost<InvoicesResponse>(
+      process.env.TICKETHUB_BFF_URL ?? '',
+      '/api/bff/portal/tickethub/invoices',
+      { clientName },
+    )
+    return {
+      clientId,
+      clientName,
+      invoices: data.invoices ?? [],
+      balanceCents: data.balanceCents ?? 0,
+      error: null as string | null,
+    }
+  } catch (err) {
+    return {
+      clientId,
+      clientName,
+      invoices: [] as Invoice[],
+      balanceCents: 0,
+      error: err instanceof Error ? err.message : String(err),
+    }
   }
-  return <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}>{label}</span>
 }
 
 export default async function InvoicesPage({
@@ -61,30 +80,66 @@ export default async function InvoicesPage({
 
   const params = await searchParams
   const justPaidId = params.paid ?? null
+  const isImpersonating = !!session.impersonatedStaffEmail
+
+  // Phase 4 — aggregate fan-out across every linked client.
+  if (session.aggregateMode) {
+    const ids = await resolveAllLinkedClientIds(session)
+    if (ids.length === 0) return <NotLinkedYet title="Invoices" />
+
+    const results = await Promise.all(ids.map(fetchInvoicesForClient))
+    const all = results.flatMap((r) =>
+      r.invoices.map((inv) => ({ ...inv, _client: r.clientName ?? '—' })),
+    )
+    all.sort((a, b) => (a.issueDate < b.issueDate ? 1 : -1))
+    const totalBalance = results.reduce((s, r) => s + r.balanceCents, 0)
+    const errored = results.filter((r) => r.error).map((r) => r.clientName ?? r.clientId)
+    const subtitle =
+      totalBalance > 0
+        ? `Aggregate · ${money(totalBalance)} outstanding across ${ids.length} companies`
+        : all.length > 0
+          ? `Aggregate · all paid up across ${ids.length} companies`
+          : `no invoices on record across ${ids.length} companies`
+
+    return (
+      <PortalSection
+        title="Invoices"
+        subtitle={subtitle}
+        error={
+          errored.length > 0
+            ? `Couldn't load invoices for: ${errored.join(', ')}`
+            : null
+        }
+      >
+        {all.length === 0 ? (
+          <EmptyState>No invoices on record across any of your companies.</EmptyState>
+        ) : (
+          <InvoicesTable
+            invoices={all}
+            isImpersonating={isImpersonating}
+            showCompany
+            multiPayDisabled
+          />
+        )}
+        <p className="mt-4 text-xs text-stone-500">
+          Multi-pay across companies needs separate Stripe sessions; that's a
+          later phase. For now, switch to a single company to multi-pay, or
+          use the per-row Pay button below.
+        </p>
+      </PortalSection>
+    )
+  }
 
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) return <NotLinkedYet title="Invoices" />
 
-  const clientName = await resolveDochubClientName(activeClientId)
-
-  let invoices: Invoice[] = []
-  let balanceCents = 0
-  let error: string | null = null
-  if (!clientName) {
-    error = "Couldn't resolve client name — tell PCC2K this link seems stale."
-  } else {
-    try {
-      const data = await signedPost<InvoicesResponse>(
-        process.env.TICKETHUB_BFF_URL ?? '',
-        '/api/bff/portal/tickethub/invoices',
-        { clientName },
-      )
-      invoices = data.invoices ?? []
-      balanceCents = data.balanceCents ?? 0
-    } catch (err) {
-      error = `Couldn't load invoices: ${err instanceof Error ? err.message : String(err)}`
-    }
-  }
+  const { clientName, invoices, balanceCents, error: fetchError } =
+    await fetchInvoicesForClient(activeClientId)
+  const error = !clientName
+    ? "Couldn't resolve client name — tell PCC2K this link seems stale."
+    : fetchError
+      ? `Couldn't load invoices: ${fetchError}`
+      : null
 
   const subtitle = balanceCents > 0
     ? `${money(balanceCents)} outstanding · ${invoices.length} recent`
@@ -95,7 +150,6 @@ export default async function InvoicesPage({
   const paidInvoice = justPaidId
     ? invoices.find((i) => i.id === justPaidId)
     : null
-  const isImpersonating = !!session.impersonatedStaffEmail
 
   return (
     <PortalSection title="Invoices" subtitle={subtitle} error={error}>
@@ -111,59 +165,18 @@ export default async function InvoicesPage({
       {!error && invoices.length === 0 && <EmptyState>Nothing on record.</EmptyState>}
 
       {invoices.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-stone-200 bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-stone-50 text-left text-xs uppercase tracking-wider text-stone-500">
-              <tr>
-                <th className="px-4 py-2 w-16">#</th>
-                <th className="px-4 py-2">Issued</th>
-                <th className="px-4 py-2">Due</th>
-                <th className="px-4 py-2">Status</th>
-                <th className="px-4 py-2 text-right">Total</th>
-                <th className="px-4 py-2">PDF</th>
-                <th className="px-4 py-2">Paid / Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-200">
-              {invoices.map((i) => {
-                const canPay = ['SENT', 'OVERDUE'].includes(i.status) && !!i.stripePaymentLinkUrl && !isImpersonating
-                return (
-                  <tr key={i.id}>
-                    <td className="px-4 py-2 font-mono text-xs text-stone-500">#{i.invoiceNumber}</td>
-                    <td className="px-4 py-2 text-xs text-stone-500 whitespace-nowrap">{formatDate(i.issueDate)}</td>
-                    <td className="px-4 py-2 text-xs text-stone-500 whitespace-nowrap">{formatDate(i.dueDate)}</td>
-                    <td className="px-4 py-2">{statusBadge(i.status, i.dueDate)}</td>
-                    <td className="px-4 py-2 text-right text-stone-700 whitespace-nowrap">{money(i.totalAmount)}</td>
-                    <td className="px-4 py-2 text-xs whitespace-nowrap">
-                      <a
-                        href={`/api/invoices/${i.id}/pdf`}
-                        className="text-orange-600 hover:underline"
-                      >
-                        Download
-                      </a>
-                    </td>
-                    <td className="px-4 py-2 text-xs whitespace-nowrap">
-                      {canPay ? (
-                        <a
-                          href={i.stripePaymentLinkUrl!}
-                          className="inline-block rounded-md bg-orange-500 px-3 py-1 text-xs font-medium text-white hover:bg-orange-600"
-                        >
-                          Pay now
-                        </a>
-                      ) : (
-                        <span className="text-stone-500">{formatDate(i.paidAt)}</span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <InvoicesTable
+          invoices={invoices.map((inv) => ({ ...inv, _client: clientName ?? '—' }))}
+          isImpersonating={isImpersonating}
+          showCompany={false}
+        />
       )}
 
       <p className="mt-8 text-xs text-stone-500">
-        Pay online with card or ACH — the link stays valid until the invoice is paid. The same link is in the invoice email; either works.
+        Tick the boxes on any open invoices and use the bar at the bottom
+        to pay several at once — your payment applies across them
+        automatically. The "Pay this" button on a single row works the
+        same way.
       </p>
     </PortalSection>
   )
