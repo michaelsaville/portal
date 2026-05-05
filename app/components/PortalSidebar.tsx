@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import CompanySwitcher from './CompanySwitcher'
 import CompanyChip from './CompanyChip'
+import { PendingBadge } from './PendingBadge'
 import type { PortalContext } from '@/app/lib/portal-context'
 
 interface SectionItem {
@@ -14,6 +15,7 @@ interface SectionGroup {
 
 const ACTIVE_GROUP: SectionItem[] = [
   { href: '/', label: 'Home' },
+  { href: '/pending', label: 'Pending' },
   { href: '/tickets', label: 'Tickets' },
   { href: '/invoices', label: 'Invoices' },
   { href: '/estimates', label: 'Estimates' },
@@ -95,9 +97,10 @@ export default function PortalSidebar({ ctx }: { ctx: PortalContext }) {
                 <li key={it.href}>
                   <Link
                     href={it.href}
-                    className="block rounded-md px-2 py-1.5 text-sm text-stone-700 hover:bg-stone-100 hover:text-stone-900"
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-stone-700 hover:bg-stone-100 hover:text-stone-900"
                   >
-                    {it.label}
+                    <span>{it.label}</span>
+                    {it.href === '/pending' && <PendingBadge />}
                   </Link>
                 </li>
               ))}
