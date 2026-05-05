@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
 import PortalSection, { EmptyState, NotLinkedYet } from '@/app/components/PortalSection'
+import { Button } from '@/app/components/ui/Button'
 import { StatusBadge } from '@/app/components/ui/StatusBadge'
 import {
   resolveActiveClientId,
@@ -148,7 +149,12 @@ export default async function TicketsPage() {
   const subtitle = tickets.length === 0 ? 'no tickets on record' : `${activeCount} open · ${tickets.length} most recent`
 
   return (
-    <PortalSection title="Tickets" subtitle={subtitle} error={error}>
+    <PortalSection
+      title="Tickets"
+      subtitle={subtitle}
+      error={error}
+      actions={<Button href="/tickets/new" size="md">+ New ticket</Button>}
+    >
       {!error && tickets.length === 0 && !matched && clientName && (
         <EmptyState>No TicketHub account matched <code>{clientName}</code> yet.</EmptyState>
       )}

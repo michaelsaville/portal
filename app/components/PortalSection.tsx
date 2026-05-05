@@ -9,6 +9,8 @@ interface Props {
   /** When set, a small back-link renders above the title (detail → list). */
   backHref?: string
   backLabel?: string
+  /** Right-aligned header content — typically a primary action button. */
+  actions?: React.ReactNode
   /** Max body width class. Defaults to `max-w-5xl`. */
   maxWidth?: string
   children: React.ReactNode
@@ -31,6 +33,7 @@ export default async function PortalSection({
   error,
   backHref,
   backLabel = '← back',
+  actions,
   maxWidth = 'max-w-5xl',
   children,
 }: Props) {
@@ -56,11 +59,14 @@ export default async function PortalSection({
             {backLabel}
           </a>
         )}
-        <header className="mb-6">
-          <h1 className="font-serif text-3xl font-bold text-stone-800">{title}</h1>
-          {finalSubtitle && (
-            <p className="mt-1 text-sm text-stone-600">{finalSubtitle}</p>
-          )}
+        <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="font-serif text-3xl font-bold text-stone-800">{title}</h1>
+            {finalSubtitle && (
+              <p className="mt-1 text-sm text-stone-600">{finalSubtitle}</p>
+            )}
+          </div>
+          {actions && <div className="flex items-center gap-2">{actions}</div>}
         </header>
 
         {error && (
