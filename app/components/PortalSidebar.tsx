@@ -21,6 +21,7 @@ const ACTIVE_GROUP: SectionItem[] = [
   { href: '/', label: 'Home' },
   { href: '/pending', label: 'Pending' },
   { href: '/tickets', label: 'Tickets' },
+  { href: '/fleet', label: 'Fleet' },
   { href: '/invoices', label: 'Invoices' },
   { href: '/estimates', label: 'Estimates' },
 ]
