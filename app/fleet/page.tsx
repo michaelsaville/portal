@@ -20,6 +20,10 @@ interface FleetSummary {
   onlineCount: number
   hostsOffline24h: number
   openAlerts: number
+  /// Phase 8 WS-B step 6 — compliance posture score (0-100).
+  /// Computed by FleetHub from backup freshness, AV state, BitLocker
+  /// (HIPAA tenants only), patch lag, and audit-chain integrity.
+  postureScore?: number
   latestActivityAt: string | null
   latestReport: {
     id: string
@@ -91,6 +95,29 @@ export default async function FleetSummaryPage() {
               sub="freshest device check-in"
             />
           </div>
+
+          {typeof summary.postureScore === 'number' && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+              <Stat
+                label="Compliance posture"
+                value={`${summary.postureScore} / 100`}
+                sub={
+                  summary.postureScore >= 90
+                    ? 'all clear'
+                    : summary.postureScore >= 70
+                      ? 'some attention needed'
+                      : 'action required — see PCC2K'
+                }
+                tone={
+                  summary.postureScore >= 90
+                    ? 'ok'
+                    : summary.postureScore >= 70
+                      ? 'warn'
+                      : 'warn'
+                }
+              />
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-3">
             <Link
