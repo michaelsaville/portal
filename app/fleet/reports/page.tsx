@@ -89,9 +89,13 @@ export default async function FleetReportsPage() {
                   </td>
                   <td className="px-3 py-2 uppercase text-[10.5px] text-stone-500">{r.format}</td>
                   <td className="px-3 py-2 text-right">
-                    <span className="text-xs text-stone-400" title="Per-report download URLs land with the next WS-D step">
-                      coming soon
-                    </span>
+                    <a
+                      href={`/api/portal/fleet-report-download/${encodeURIComponent(r.id)}`}
+                      className="text-xs font-medium text-blue-700 hover:underline"
+                      title="Mints a fresh 5-minute signed link and opens the file"
+                    >
+                      Download ↓
+                    </a>
                   </td>
                 </tr>
               ))}
