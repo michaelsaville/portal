@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
 import PortalSection, { NotLinkedYet } from '@/app/components/PortalSection'
+import OpenFleetTicketCard from './OpenFleetTicketCard'
 import {
   resolveActiveClientId,
   resolveDochubClientName,
@@ -117,6 +118,8 @@ export default async function FleetSummaryPage() {
               </span>
             )}
           </div>
+
+          <OpenFleetTicketCard />
 
           <p className="text-xs text-stone-500">
             Open alerts can&rsquo;t be acked from the portal — that&rsquo;s on the PCC2K team. Email{' '}
