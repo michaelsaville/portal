@@ -99,6 +99,12 @@ export default async function FleetSummaryPage() {
               View devices
             </Link>
             <Link
+              href="/fleet/patches"
+              className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 hover:bg-stone-50"
+            >
+              View patches
+            </Link>
+            <Link
               href="/fleet/reports"
               className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 hover:bg-stone-50"
             >
