@@ -3,6 +3,7 @@ import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
 import PortalSection, { EmptyState, NotLinkedYet } from '@/app/components/PortalSection'
 import AggregateNotSupported from '@/app/components/AggregateNotSupported'
+import SharedFiles, { type SharedFile } from '@/app/components/SharedFiles'
 import { resolveActiveClientId } from '@/app/lib/portal-section'
 
 export const dynamic = 'force-dynamic'
@@ -20,6 +21,7 @@ interface Doc {
 interface DocsResponse {
   ok: boolean
   documents: Doc[]
+  files: SharedFile[]
   error?: string
 }
 
@@ -36,6 +38,7 @@ export default async function DocumentsPage() {
   if (!activeClientId) return <NotLinkedYet title="Documents" />
 
   let documents: Doc[] = []
+  let files: SharedFile[] = []
   let error: string | null = null
   try {
     const data = await signedPost<DocsResponse>(
@@ -44,6 +47,7 @@ export default async function DocumentsPage() {
       { clientId: activeClientId },
     )
     documents = data.documents ?? []
+    files = data.files ?? []
   } catch (err) {
     error = `Couldn't load documents: ${err instanceof Error ? err.message : String(err)}`
   }
@@ -63,8 +67,11 @@ export default async function DocumentsPage() {
       subtitle={`${documents.length} document${documents.length === 1 ? '' : 's'} on record`}
       error={error}
     >
-      {!error && documents.length === 0 && <EmptyState>Nothing on record yet.</EmptyState>}
+      {!error && documents.length === 0 && files.length === 0 && (
+        <EmptyState>Nothing on record yet.</EmptyState>
+      )}
 
+      <div className="space-y-8">
       {documents.length > 0 && (
         <div className="space-y-8">
           {Array.from(byFolder.values()).map((f) => (
@@ -100,8 +107,13 @@ export default async function DocumentsPage() {
         </div>
       )}
 
+      <SharedFiles files={files} />
+      </div>
+
       <p className="mt-8 text-xs text-stone-500">
-        Document contents aren't shown here — ask PCC2K if you need the body of a specific doc.
+        Written document text isn't shown here — ask PCC2K if you need the body
+        of a specific note. Files shared with you can be previewed or downloaded
+        above.
       </p>
     </PortalSection>
   )
