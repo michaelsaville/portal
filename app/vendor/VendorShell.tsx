@@ -4,6 +4,7 @@ import { clientAbbrev, clientTint } from '@/app/lib/client-tint'
 
 const NAV_ITEMS: { href: string; label: string }[] = [
   { href: '/vendor', label: 'Home' },
+  { href: '/vendor/shared', label: 'Client access' },
   { href: '/vendor/purchase-orders', label: 'Purchase orders' },
   { href: '/vendor/rfqs', label: 'RFQs' },
   { href: '/vendor/documents', label: 'Documents' },

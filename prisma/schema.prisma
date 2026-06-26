@@ -53,6 +53,7 @@ model PortalUser {
   magicLinks       PortalMagicLink[]
   clientLinks      PortalUserClientLink[]
   vendorLinks      PortalUserVendorLink[]
+  vendorClientGrants PortalVendorClientGrant[]
   vaultSessions    PortalVaultSession[]
   auditEvents      PortalAuditEvent[]
   outboundMessages PortalOutboundMessage[]
@@ -93,6 +94,36 @@ model PortalUserVendorLink {
   @@unique([portalUserId, vendorId])
   @@index([vendorId])
   @@map("portal_user_vendor_links")
+  @@schema("portal")
+}
+
+/// Joins a VENDOR-persona PortalUser to a DocHub (vendor, client) pair —
+/// the "client's outside vendor" access axis. Distinct from
+/// PortalUserVendorLink (which points at a TicketHub TH_Vendor for the
+/// purchase-order surfaces): this one says "this person, acting as DocHub
+/// vendor X, may view the credentials/documents client Y has shared with
+/// vendor X". DocHub owns the authoritative grant + the per-item shares;
+/// this row only records the link so the portal can authenticate and
+/// scope. Names are cached for display (DocHub is source of truth).
+model PortalVendorClientGrant {
+  id             String     @id @default(cuid())
+  portalUserId   String
+  portalUser     PortalUser @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
+
+  /// DocHub Vendor.id — not an FK (DocHub is a different Prisma schema).
+  dochubVendorId String
+  vendorName     String
+  /// DocHub Client.id — not an FK for the same reason.
+  clientId       String
+  clientName     String
+  isActive       Boolean    @default(true)
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([portalUserId, dochubVendorId, clientId])
+  @@index([portalUserId])
+  @@map("portal_vendor_client_grants")
   @@schema("portal")
 }
 
@@ -161,6 +192,10 @@ model PortalSession {
   /// (activeVendorId set, activeClientId null) — the persona of the
   /// underlying PortalUser determines which.
   activeVendorId String?
+  /// Vendor-portal DocHub access: which PortalVendorClientGrant the vendor
+  /// has selected (their active client context). Null falls back to the
+  /// first active grant. Independent of activeVendorId (TicketHub PO axis).
+  activeVendorGrantId String?
   userAgent      String?
   ipAddress      String?
   lastSeenAt     DateTime   @default(now())

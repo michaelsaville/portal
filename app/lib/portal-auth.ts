@@ -21,6 +21,7 @@ export async function issueMagicLink(input: {
   purpose:
     | 'LOGIN'
     | 'PASSWORD_RESET'
+    | 'VENDOR_INVITE'
     | 'ACTION_APPROVE_ESTIMATE'
     | 'ACTION_DECLINE_ESTIMATE'
     | 'ACTION_ACK_REMINDER'
@@ -132,6 +133,9 @@ export interface ResolvedSession {
   /** Phase 7: vendor-side counterpart to activeClientId. Set on vendor
    *  sessions; null on customer sessions. */
   activeVendorId: string | null
+  /** Vendor DocHub-access: which client (PortalVendorClientGrant.clientId)
+   *  the vendor has selected. Null falls back to their first active grant. */
+  activeVendorGrantId: string | null
   /** Phase 4: when true, the user is browsing in "All companies" mode.
    *  Tickets and Invoices fan out across every linked client; every
    *  other section gates with a "switch to a single company" stub. */
@@ -183,6 +187,7 @@ export async function getSession(): Promise<ResolvedSession | null> {
     user: session.portalUser,
     activeClientId: session.activeClientId,
     activeVendorId: session.activeVendorId,
+    activeVendorGrantId: session.activeVendorGrantId,
     aggregateMode: session.aggregateMode,
     impersonatedStaffEmail: session.impersonatedStaffEmail,
   }
