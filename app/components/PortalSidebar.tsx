@@ -34,6 +34,7 @@ const DOCUMENTATION_GROUP: SectionItem[] = [
   { href: '/locations', label: 'Locations' },
   { href: '/contacts', label: 'Contacts' },
   { href: '/vault', label: 'Vault' },
+  { href: '/vendor-access', label: 'Vendor access' },
 ]
 
 const FOOTER_GROUP: SectionItem[] = [

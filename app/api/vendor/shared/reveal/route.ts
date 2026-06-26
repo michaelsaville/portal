@@ -18,11 +18,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
-  let body: { clientId?: string; credentialId?: string }
+  let body: { clientId?: string; credentialId?: string; kind?: string }
   try { body = await req.json() } catch { return NextResponse.json({ error: 'invalid JSON' }, { status: 400 }) }
   if (!body.clientId || !body.credentialId) {
     return NextResponse.json({ error: 'clientId and credentialId required' }, { status: 400 })
   }
+  const kind = body.kind === 'vault' ? 'vault' : 'managed'
 
   const grants = await getVendorGrants(session.user.id)
   const grant = resolveActiveGrant(grants, body.clientId)
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await revealCredential(grant, body.credentialId)
+    const result = await revealCredential(grant, body.credentialId, kind)
     return NextResponse.json(result)
   } catch {
     return NextResponse.json({ error: 'reveal failed' }, { status: 502 })

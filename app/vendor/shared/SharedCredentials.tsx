@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 export interface SharedCredential {
   id: string
+  kind: 'managed' | 'vault'
   label: string
   username: string | null
   url: string | null
@@ -44,7 +45,7 @@ function CredentialRow({ clientId, cred }: { clientId: string; cred: SharedCrede
       const res = await fetch('/api/vendor/shared/reveal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, credentialId: cred.id }),
+        body: JSON.stringify({ clientId, credentialId: cred.id, kind: cred.kind }),
       })
       const data = await res.json()
       if (res.ok && data.ok !== false) setRevealed({ password: data.password ?? null, totpCode: data.totpCode ?? null })

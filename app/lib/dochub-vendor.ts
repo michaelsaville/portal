@@ -50,6 +50,9 @@ function vendorBff<T>(path: string, payload: Record<string, unknown>): Promise<T
 
 export interface SharedCredential {
   id: string
+  /** 'managed' = MSP-held internal credential (staff-shared);
+   *  'vault' = the client's own vault credential (client-shared, phase 2). */
+  kind: 'managed' | 'vault'
   label: string
   username: string | null
   url: string | null
@@ -89,14 +92,18 @@ export function fetchShared(grant: VendorGrant): Promise<SharedBundle> {
   })
 }
 
-/** Decrypt one shared credential. Re-checked server-side against the share. */
+/** Decrypt one shared credential. Re-checked server-side against the share.
+ *  `kind` tells DocHub whether to look in the MSP credential table or the
+ *  customer-vault table. */
 export function revealCredential(
   grant: VendorGrant,
   credentialId: string,
+  kind: 'managed' | 'vault' = 'managed',
 ): Promise<{ ok: boolean; password: string | null; totpCode: string | null; error?: string }> {
   return vendorBff('reveal', {
     vendorId: grant.dochubVendorId,
     clientId: grant.clientId,
     credentialId,
+    kind,
   })
 }

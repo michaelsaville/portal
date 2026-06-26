@@ -46,6 +46,11 @@ export function middleware(req: NextRequest) {
   const onVendorHost = isVendorHost(req)
   const token = req.cookies.get(PORTAL_SESSION_COOKIE)?.value
 
+  // The vendor route tree is exactly `/vendor` and `/vendor/*` — NOT
+  // sibling customer pages that merely share the prefix (e.g. the phase-2
+  // customer page `/vendor-access`, which must render on the customer host).
+  const isVendorTree = pathname === '/vendor' || pathname.startsWith('/vendor/')
+
   // ── Host-aware route gating ────────────────────────────────────────
   if (onVendorHost) {
     // Customer-only paths on the vendor host → 404.
@@ -74,12 +79,13 @@ export function middleware(req: NextRequest) {
       return NextResponse.rewrite(new URL('/vendor', req.url))
     }
     // Other paths starting with `/vendor/...` work as-is.
-    if (!pathname.startsWith('/vendor')) {
+    if (!isVendorTree) {
       return NextResponse.rewrite(new URL(`/vendor${pathname}`, req.url))
     }
   } else {
-    // Customer host: vendor route tree returns 404 directly.
-    if (pathname.startsWith('/vendor')) {
+    // Customer host: vendor route tree returns 404 directly. `/vendor-access`
+    // is a customer page (not the vendor tree) and must fall through.
+    if (isVendorTree) {
       return new NextResponse(null, { status: 404 })
     }
   }
