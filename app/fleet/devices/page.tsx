@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
 import PortalSection, { NotLinkedYet, EmptyState } from '@/app/components/PortalSection'
+import RemoteAccessButton from './RemoteAccessButton'
 import {
   resolveActiveClientId,
   resolveDochubClientName,
@@ -50,6 +51,22 @@ export default async function FleetDevicesPage() {
   }
   const devices = data?.devices ?? []
 
+  // Customer self-service remote access: which of these devices this user
+  // may connect to. Failure here just hides the buttons.
+  let remote: { enabled: boolean; deviceIds: string[] } = { enabled: false, deviceIds: [] }
+  if (devices.length > 0 && !session.impersonatedStaffEmail) {
+    try {
+      remote = await signedPost<{ enabled: boolean; deviceIds: string[] }>(
+        process.env.FLEETHUB_BFF_URL ?? '',
+        '/api/bff/portal/remote-shares',
+        { portalUserId: session.user.id, portalEmail: session.user.email, clientName },
+      )
+    } catch {
+      /* buttons stay hidden */
+    }
+  }
+  const canRemote = new Set(remote.enabled ? remote.deviceIds : [])
+
   return (
     <PortalSection title="Fleet devices" subtitle={`${devices.length} device${devices.length === 1 ? '' : 's'}`} backHref="/fleet" backLabel="Fleet" error={error}>
       {devices.length === 0 ? (
@@ -64,6 +81,7 @@ export default async function FleetDevicesPage() {
                 <th className="px-3 py-2 text-left">Role</th>
                 <th className="px-3 py-2 text-left">Last seen</th>
                 <th className="px-3 py-2 text-center">Status</th>
+                {canRemote.size > 0 && <th className="px-3 py-2 text-right">Remote</th>}
               </tr>
             </thead>
             <tbody>
@@ -85,11 +103,21 @@ export default async function FleetDevicesPage() {
                       {d.isOnline ? 'online' : 'offline'}
                     </span>
                   </td>
+                  {canRemote.size > 0 && (
+                    <td className="px-3 py-2 text-right">
+                      {canRemote.has(d.id) && <RemoteAccessButton deviceId={d.id} hostname={d.hostname} online={d.isOnline} />}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+      {canRemote.size > 0 && (
+        <p className="mt-4 text-xs text-stone-500">
+          <b>Remote access</b> opens a browser session to your own computer — nothing to install. Sessions are logged. Close the tab when you're done.
+        </p>
       )}
       <p className="mt-4 text-xs text-stone-500">
         Read-only view. To request changes — install / decommission / rename — email{' '}
