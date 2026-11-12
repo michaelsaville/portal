@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { prisma } from '@/app/lib/prisma'
 import { verifyImpersonationToken } from '@/app/lib/portal-impersonate'
 import { hashToken } from '@/app/lib/tokens'
+import { publicUrl } from '@/app/lib/public-url'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,14 +27,14 @@ const SESSION_TTL_MINUTES = 30
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('token')
   if (!token) {
-    return NextResponse.redirect(new URL('/login?impersonation=missing-token', req.url))
+    return NextResponse.redirect(publicUrl(req, '/login?impersonation=missing-token'))
   }
 
   const secret = process.env.PORTAL_BFF_SECRET ?? ''
   const verify = verifyImpersonationToken(token, secret)
   if (!verify.ok) {
     return NextResponse.redirect(
-      new URL(`/login?impersonation=${encodeURIComponent(verify.reason)}`, req.url),
+      publicUrl(req, `/login?impersonation=${encodeURIComponent(verify.reason)}`),
     )
   }
   const { claims } = verify
@@ -94,5 +95,5 @@ export async function GET(req: NextRequest) {
     expires: expiresAt,
   })
 
-  return NextResponse.redirect(new URL('/', req.url))
+  return NextResponse.redirect(publicUrl(req, '/'))
 }

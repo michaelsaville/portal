@@ -108,8 +108,11 @@ export function middleware(req: NextRequest) {
   }
 
   // Customer side — pass /login / /login/reset through, redirect everything
-  // else to /login.
-  if (pathname === '/' || pathname.startsWith('/login')) {
+  // else to /login. /impersonate is the TicketHub "view as client" hand-off:
+  // it arrives with no cookie and verifies its own signed token, so it must
+  // not be bounced to /login (regressed in f6d29dd when the matcher's
+  // `impersonate` exclusion was dropped).
+  if (pathname === '/' || pathname.startsWith('/login') || pathname === '/impersonate') {
     return NextResponse.next()
   }
   const loginUrl = new URL('/login', req.url)

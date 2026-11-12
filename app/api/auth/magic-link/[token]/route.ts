@@ -4,6 +4,7 @@ import {
   createSession,
   audit,
 } from '@/app/lib/portal-auth'
+import { publicUrl } from '@/app/lib/public-url'
 
 /**
  * GET /api/auth/magic-link/:token
@@ -20,7 +21,7 @@ export async function GET(
   const next = req.nextUrl.searchParams.get('next')
   const safeNext =
     next && next.startsWith('/') && !next.startsWith('//') ? next : '/'
-  const base = new URL(req.url)
+  const base = publicUrl(req, '/')
 
   const result = await consumeMagicLink(token, 'LOGIN')
   if (!result) {
