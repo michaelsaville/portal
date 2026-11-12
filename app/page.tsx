@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getSession } from '@/app/lib/portal-auth'
 import { getPortalContext } from '@/app/lib/portal-context'
+import type { PermissionKey } from '@/app/lib/portal-roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,7 +44,9 @@ export default async function HomePage() {
   const activeName = ctx?.activeCompany?.name ?? null
   const aggregate = ctx?.aggregate.active ?? false
 
-  const cards = aggregate
+  const access = ctx?.access
+  const allow = (k: PermissionKey) => !!access?.[k]
+  const cards: { href: string; title: string; blurb: string }[] = aggregate
     ? [
         {
           href: '/tickets',
@@ -57,12 +60,15 @@ export default async function HomePage() {
         },
       ]
     : [
-        { href: '/account', title: 'Account', blurb: 'Balance, payments, and aging' },
-        { href: '/tickets', title: 'Tickets', blurb: 'Open requests and history' },
-        { href: '/invoices', title: 'Invoices', blurb: 'Open balances and recent payments' },
-        { href: '/estimates', title: 'Estimates', blurb: 'Awaiting your review' },
-        { href: '/documents', title: 'Documents', blurb: 'Reports, agreements, runbooks' },
-        { href: '/assets', title: 'Assets', blurb: 'Managed devices and equipment' },
+        ...((ctx?.remoteDeviceCount ?? 0) > 0
+          ? [{ href: '/remote', title: 'Remote access', blurb: 'Connect to your work computer' }]
+          : []),
+        ...(allow('invoices') ? [{ href: '/account', title: 'Account', blurb: 'Balance, payments, and aging' }] : []),
+        ...(allow('tickets') ? [{ href: '/tickets', title: 'Tickets', blurb: 'Open requests and history' }] : []),
+        ...(allow('invoices') ? [{ href: '/invoices', title: 'Invoices', blurb: 'Open balances and recent payments' }] : []),
+        ...(allow('estimates') ? [{ href: '/estimates', title: 'Estimates', blurb: 'Awaiting your review' }] : []),
+        ...(allow('documents') ? [{ href: '/documents', title: 'Documents', blurb: 'Reports, agreements, runbooks' }] : []),
+        ...(allow('assets') ? [{ href: '/assets', title: 'Assets', blurb: 'Managed devices and equipment' }] : []),
       ]
 
   return (

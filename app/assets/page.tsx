@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
-import PortalSection, { EmptyState, NotLinkedYet } from '@/app/components/PortalSection'
+import PortalSection, { EmptyState, NotLinkedYet, NoAccess } from '@/app/components/PortalSection'
 import AggregateNotSupported from '@/app/components/AggregateNotSupported'
+import { canAccess } from '@/app/lib/portal-permissions'
 import { resolveActiveClientId } from '@/app/lib/portal-section'
 
 export const dynamic = 'force-dynamic'
@@ -52,6 +53,7 @@ export default async function AssetsPage() {
 
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) return <NotLinkedYet title="Assets" />
+  if (!(await canAccess(session, activeClientId, 'assets'))) return <NoAccess title="Assets" />
 
   let assets: Asset[] = []
   let error: string | null = null

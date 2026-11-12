@@ -5,6 +5,7 @@ import { prisma } from '@/app/lib/prisma'
 import { getSession } from '@/app/lib/portal-auth'
 import { lockAllVaults } from '@/app/lib/vault-session'
 import { AGGREGATE_SENTINEL } from '@/app/lib/aggregate'
+import { isClientWideImpersonation } from '@/app/lib/portal-permissions'
 
 /**
  * Switch the current session's active client. Only allowed to flip to
@@ -23,14 +24,18 @@ import { AGGREGATE_SENTINEL } from '@/app/lib/aggregate'
 export async function switchClientAction(formData: FormData) {
   const session = await getSession()
   if (!session) return
-  if (session.impersonatedStaffEmail) return // staff tunnel stays on its chosen client
+  // Client-wide staff tunnel stays on its chosen client. Staff viewing as a
+  // specific user may flip between that user's companies, but must never
+  // touch the real user's vault sessions (lockAllVaults is per-user).
+  if (isClientWideImpersonation(session)) return
+  const staffView = !!session.impersonatedStaffEmail
 
   const raw = String(formData.get('clientId') ?? '')
   if (!raw) return
 
   if (raw === AGGREGATE_SENTINEL) {
     if (session.aggregateMode) return
-    await lockAllVaults(session.user.id)
+    if (!staffView) await lockAllVaults(session.user.id)
     await prisma.portalSession.update({
       where: { id: session.sessionId },
       data: { aggregateMode: true },
@@ -53,7 +58,7 @@ export async function switchClientAction(formData: FormData) {
   })
   if (!link) return
 
-  await lockAllVaults(session.user.id)
+  if (!staffView) await lockAllVaults(session.user.id)
 
   await prisma.portalSession.update({
     where: { id: session.sessionId },

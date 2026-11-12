@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/app/lib/portal-auth'
 import { prisma } from '@/app/lib/prisma'
+import { canAccess } from '@/app/lib/portal-permissions'
 import { resolveActiveClientId } from '@/app/lib/portal-section'
-import PortalSection, { NotLinkedYet } from '@/app/components/PortalSection'
+import PortalSection, { NotLinkedYet, NoAccess } from '@/app/components/PortalSection'
 import AggregateNotSupported from '@/app/components/AggregateNotSupported'
 import { Card } from '@/app/components/ui/Card'
 import { NewTicketForm } from './NewTicketForm'
@@ -17,6 +18,7 @@ export default async function NewTicketPage() {
   }
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) return <NotLinkedYet title="New ticket" />
+  if (!(await canAccess(session, activeClientId, 'tickets'))) return <NoAccess title="New ticket" />
 
   const link = await prisma.portalUserClientLink.findFirst({
     where: { portalUserId: session.user.id, clientId: activeClientId },

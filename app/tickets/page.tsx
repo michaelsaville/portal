@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { canAccess, filterClientIdsByAccess } from '@/app/lib/portal-permissions'
 import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
-import PortalSection, { EmptyState, NotLinkedYet } from '@/app/components/PortalSection'
+import PortalSection, { EmptyState, NotLinkedYet, NoAccess } from '@/app/components/PortalSection'
 import { Button } from '@/app/components/ui/Button'
 import { StatusBadge } from '@/app/components/ui/StatusBadge'
 import {
@@ -97,7 +98,7 @@ export default async function TicketsPage() {
 
   // Phase 4 — aggregate fan-out across every linked client.
   if (session.aggregateMode) {
-    const ids = await resolveAllLinkedClientIds(session)
+    const ids = await filterClientIdsByAccess(session, await resolveAllLinkedClientIds(session), 'tickets')
     if (ids.length === 0) return <NotLinkedYet title="Tickets" />
     const results = await Promise.all(ids.map(fetchTicketsForClient))
     const all = results.flatMap((r) =>
@@ -137,6 +138,7 @@ export default async function TicketsPage() {
 
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) return <NotLinkedYet title="Tickets" />
+  if (!(await canAccess(session, activeClientId, 'tickets'))) return <NoAccess title="Tickets" />
 
   const { clientName, tickets, matched, error: fetchError } = await fetchTicketsForClient(activeClientId)
   const error = !clientName

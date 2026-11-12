@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { canAccess } from '@/app/lib/portal-permissions'
 import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
 import PortalSection from '@/app/components/PortalSection'
@@ -82,6 +83,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
 
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) redirect('/tickets')
+  if (!(await canAccess(session, activeClientId, 'tickets'))) redirect('/tickets')
   const clientName = await resolveDochubClientName(activeClientId)
 
   let ticket: Ticket | null = null

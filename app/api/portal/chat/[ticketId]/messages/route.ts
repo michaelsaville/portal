@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { canAccess } from '@/app/lib/portal-permissions'
 import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
 import {
@@ -36,6 +37,9 @@ export async function GET(
       { ok: false, error: 'no client' },
       { status: 404 },
     )
+  }
+  if (!(await canAccess(session, activeClientId, 'tickets'))) {
+    return NextResponse.json({ error: 'Your account does not include tickets for this company.' }, { status: 403 })
   }
   const clientName = await resolveDochubClientName(activeClientId)
   if (!clientName) {

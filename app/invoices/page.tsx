@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
+import { canAccess, filterClientIdsByAccess } from '@/app/lib/portal-permissions'
 import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
-import PortalSection, { EmptyState, NotLinkedYet } from '@/app/components/PortalSection'
+import PortalSection, { EmptyState, NotLinkedYet, NoAccess } from '@/app/components/PortalSection'
 import {
   resolveActiveClientId,
   resolveAllLinkedClientIds,
@@ -84,7 +85,7 @@ export default async function InvoicesPage({
 
   // Phase 4 — aggregate fan-out across every linked client.
   if (session.aggregateMode) {
-    const ids = await resolveAllLinkedClientIds(session)
+    const ids = await filterClientIdsByAccess(session, await resolveAllLinkedClientIds(session), 'invoices')
     if (ids.length === 0) return <NotLinkedYet title="Invoices" />
 
     const results = await Promise.all(ids.map(fetchInvoicesForClient))
@@ -132,6 +133,7 @@ export default async function InvoicesPage({
 
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) return <NotLinkedYet title="Invoices" />
+  if (!(await canAccess(session, activeClientId, 'invoices'))) return <NoAccess title="Invoices" />
 
   const { clientName, invoices, balanceCents, error: fetchError } =
     await fetchInvoicesForClient(activeClientId)

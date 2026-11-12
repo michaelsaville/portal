@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { canAccess } from '@/app/lib/portal-permissions'
 import { revalidatePath } from 'next/cache'
 import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
@@ -77,6 +78,7 @@ async function actionOnEstimate(formData: FormData) {
 
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) return
+  if (!(await canAccess(session, activeClientId, 'estimates'))) return
   const clientName = await resolveDochubClientName(activeClientId)
   if (!clientName) return
 
@@ -100,6 +102,7 @@ export default async function EstimateDetailPage({ params }: { params: Promise<{
 
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) redirect('/estimates')
+  if (!(await canAccess(session, activeClientId, 'estimates'))) redirect('/estimates')
   const clientName = await resolveDochubClientName(activeClientId)
 
   let estimate: Estimate | null = null

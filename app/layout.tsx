@@ -31,6 +31,11 @@ export default async function RootLayout({
 }>) {
   const session = await getSession()
   const impersonatedBy = session?.impersonatedStaffEmail ?? null
+  // View-as a specific user (from /admin/users) vs the client-wide tunnel.
+  const viewingAsUser =
+    impersonatedBy && session && session.user.email.toLowerCase() !== 'impersonator@internal.pcc2k.com'
+      ? session.user.name
+      : null
 
   return (
     <html lang="en">
@@ -41,7 +46,7 @@ export default async function RootLayout({
           <div className="sticky top-0 z-50 bg-amber-500 text-amber-950 shadow-md">
             <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between gap-4 flex-wrap text-sm">
               <div className="flex items-center gap-2 font-medium">
-                <span className="text-[10px] uppercase tracking-wider bg-amber-900 text-amber-50 px-2 py-0.5 rounded-full">Viewing as client</span>
+                <span className="text-[10px] uppercase tracking-wider bg-amber-900 text-amber-50 px-2 py-0.5 rounded-full">{viewingAsUser ? `Viewing as ${viewingAsUser}` : 'Viewing as client'}</span>
                 <span>Staff tunnel: <code className="font-mono text-xs">{impersonatedBy}</code></span>
                 <span className="text-amber-900 text-xs">(read-only)</span>
               </div>

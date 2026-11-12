@@ -22,7 +22,10 @@ export async function inviteUser(input: {
   name: string
   clientId: string
   role: string
-}): Promise<ActionResult<{ inviteLink: string }>> {
+  /** false = create the account + link without emailing yet (staff can
+   *  set up remote access and preview via View as first). Default true. */
+  sendEmail?: boolean
+}): Promise<ActionResult<{ inviteLink: string; emailed: boolean }>> {
   const admin = await requirePortalAdmin()
   const email = input.email.trim().toLowerCase()
   const name = input.name.trim()
@@ -74,6 +77,12 @@ export async function inviteUser(input: {
     data: { targetEmail: email, role: input.role, expiresAt },
   })
 
+  const emailed = input.sendEmail !== false
+  if (!emailed) {
+    revalidatePath('/admin/users')
+    return { ok: true, data: { inviteLink, emailed } }
+  }
+
   // Resolve the client name for the email template. Lives in DocHub's
   // schema, so raw SQL.
   const [clientRow] = await prisma.$queryRaw<Array<{ name: string }>>`
@@ -98,7 +107,7 @@ export async function inviteUser(input: {
   )
 
   revalidatePath('/admin/users')
-  return { ok: true, data: { inviteLink } }
+  return { ok: true, data: { inviteLink, emailed } }
 }
 
 export async function updateLinkRole(input: {

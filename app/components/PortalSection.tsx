@@ -104,3 +104,16 @@ export function EmptyState({ children }: { children: React.ReactNode }) {
     </div>
   )
 }
+
+/**
+ * The user's role at this company doesn't include this section.
+ */
+export function NoAccess({ title }: { title: string }) {
+  return (
+    <PortalSection title={title}>
+      <p className="rounded-lg border border-dashed border-stone-300 bg-white p-8 text-center text-sm text-stone-600">
+        Your account doesn&apos;t include {title.toLowerCase()} for this company. Ask PCC2K if you need it.
+      </p>
+    </PortalSection>
+  )
+}

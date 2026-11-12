@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { canAccess } from '@/app/lib/portal-permissions'
 import { getSession } from '@/app/lib/portal-auth'
 import { prisma } from '@/app/lib/prisma'
 import { signedPost } from '@/app/lib/bff-client'
@@ -39,6 +40,9 @@ export async function POST(req: NextRequest) {
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) {
     return NextResponse.json({ error: 'No linked company' }, { status: 400 })
+  }
+  if (!(await canAccess(session, activeClientId, 'tickets'))) {
+    return NextResponse.json({ error: 'Your account does not include tickets for this company.' }, { status: 403 })
   }
 
   const link = await prisma.portalUserClientLink.findFirst({

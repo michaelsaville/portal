@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { canAccess } from '@/app/lib/portal-permissions'
 import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
 import {
@@ -30,6 +31,7 @@ export async function POST(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
+  if (session.impersonatedStaffEmail) return NextResponse.json({ error: 'Not available in staff view.' }, { status: 403 })
 
   let body: { invoiceIds?: unknown }
   try {
@@ -50,6 +52,9 @@ export async function POST(req: NextRequest) {
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) {
     return NextResponse.json({ error: 'no client link' }, { status: 403 })
+  }
+  if (!(await canAccess(session, activeClientId, 'payments'))) {
+    return NextResponse.json({ error: 'Your account does not include payments for this company.' }, { status: 403 })
   }
   const clientName = await resolveDochubClientName(activeClientId)
   if (!clientName) {

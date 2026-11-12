@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getSession } from '@/app/lib/portal-auth'
 import { requirePendingActor, reminderBff } from '../../_helpers'
 
 export const runtime = 'nodejs'
@@ -12,6 +13,7 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  if ((await getSession())?.impersonatedStaffEmail) return NextResponse.json({ error: 'Not available in staff view.' }, { status: 403 })
   const gate = await requirePendingActor()
   if (gate.ok === 'no-mapping') {
     return NextResponse.json({ error: 'Not linked' }, { status: 403 })

@@ -39,11 +39,31 @@ export async function GET(req: NextRequest) {
   }
   const { claims } = verify
 
+  // View as a specific portal user (from /admin/users): that user's real
+  // links and permissions, still flagged as a read-only staff session.
+  let target: { id: string; email: string } | null = null
+  if (claims.portalUserId) {
+    const user = await prisma.portalUser.findUnique({
+      where: { id: claims.portalUserId },
+      select: { id: true, email: true, isActive: true },
+    })
+    const link = user
+      ? await prisma.portalUserClientLink.findUnique({
+          where: { portalUserId_clientId: { portalUserId: user.id, clientId: claims.dochubClientId } },
+          select: { id: true },
+        })
+      : null
+    if (!user || !user.isActive || !link) {
+      return NextResponse.redirect(publicUrl(req, '/login?impersonation=user-not-linked'))
+    }
+    target = { id: user.id, email: user.email }
+  }
+
   // One shared synthetic PortalUser for all impersonation sessions.
   // Isolating it behind an @internal email stops collision with a real
   // portal user and makes the audit view ("who's logged in right now")
   // obvious at a glance.
-  const synthetic = await prisma.portalUser.upsert({
+  const synthetic = target ?? await prisma.portalUser.upsert({
     where: {
       email_persona: { email: IMPERSONATION_USER_EMAIL, persona: 'CUSTOMER' },
     },
@@ -82,6 +102,7 @@ export async function GET(req: NextRequest) {
         staffEmail: claims.staffEmail,
         staffName: claims.staffName,
         clientName: claims.clientName,
+        ...(target ? { asUserEmail: target.email } : {}),
       },
     },
   })

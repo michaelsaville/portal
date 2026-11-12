@@ -28,6 +28,9 @@ export async function requireVaultActor(): Promise<GateResult> {
   if (!session) {
     return { ok: false, res: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
   }
+  if (session.impersonatedStaffEmail) {
+    return { ok: false, res: NextResponse.json({ error: 'Not available in staff view.' }, { status: 403 }) }
+  }
   const clientId = session.activeClientId
   if (!clientId) {
     return {

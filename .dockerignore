@@ -1,0 +1,6 @@
+# Secrets are supplied at runtime via docker-compose env_file — never bake them
+# into the image (Next standalone copies .env* into .next/standalone).
+.env
+.env.*
+!.env.example
+.git

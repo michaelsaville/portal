@@ -3,6 +3,23 @@ import CompanySwitcher from './CompanySwitcher'
 import CompanyChip from './CompanyChip'
 import { PendingBadge } from './PendingBadge'
 import type { PortalContext } from '@/app/lib/portal-context'
+import type { PermissionKey } from '@/app/lib/portal-roles'
+
+/** Which role permission each section needs. Unlisted = always shown. */
+const SECTION_PERMISSION: Record<string, PermissionKey> = {
+  '/account': 'invoices',
+  '/tickets': 'tickets',
+  '/invoices': 'invoices',
+  '/estimates': 'estimates',
+  '/documents': 'documents',
+  '/assets': 'assets',
+  '/licenses': 'licenses',
+  '/domains': 'domains',
+  '/locations': 'locations',
+  '/contacts': 'contacts',
+  '/vault': 'vault',
+  '/vendor-access': 'vendorAccess',
+}
 
 interface SectionItem {
   href: string
@@ -21,7 +38,6 @@ const ACTIVE_GROUP: SectionItem[] = [
   { href: '/', label: 'Home' },
   { href: '/pending', label: 'Pending' },
   { href: '/tickets', label: 'Tickets' },
-  { href: '/fleet', label: 'Fleet' },
   { href: '/invoices', label: 'Invoices' },
   { href: '/estimates', label: 'Estimates' },
 ]
@@ -47,13 +63,24 @@ const ADMIN_ITEMS: SectionItem[] = [
 ]
 
 export default function PortalSidebar({ ctx }: { ctx: PortalContext }) {
-  const { session, links, activeCompany, aggregate, isImpersonating, isAdmin } = ctx
+  const { session, links, activeCompany, aggregate, isImpersonating, isAdmin, access, remoteDeviceCount } = ctx
+
+  // In aggregate mode every linked company's role is in play, so keep the
+  // aggregable sections visible (their pages filter per company).
+  const visible = (it: SectionItem) => {
+    const key = SECTION_PERMISSION[it.href]
+    if (!key) return true
+    if (aggregate.active) return AGGREGABLE_HREFS.has(it.href) || access[key]
+    return access[key]
+  }
+  const active = ACTIVE_GROUP.filter(visible)
+  if (remoteDeviceCount > 0) active.splice(1, 0, { href: '/remote', label: 'Remote access' })
 
   const groups: SectionGroup[] = [
-    { label: null, items: ACTIVE_GROUP },
-    { label: 'Documentation', items: DOCUMENTATION_GROUP },
-    { label: null, items: FOOTER_GROUP },
-  ]
+    { label: null, items: active },
+    { label: 'Documentation', items: DOCUMENTATION_GROUP.filter(visible) },
+    { label: null, items: FOOTER_GROUP.filter(visible) },
+  ].filter((g) => g.items.length > 0)
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col gap-3 border-r border-stone-200 bg-white px-3 py-4">
@@ -69,7 +96,7 @@ export default function PortalSidebar({ ctx }: { ctx: PortalContext }) {
 
       {/* Company chip / switcher */}
       <div>
-        {isImpersonating && activeCompany ? (
+        {isImpersonating && links.length === 0 && activeCompany ? (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-2">
             <CompanyChip
               clientId={activeCompany.id}

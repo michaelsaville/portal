@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { canAccess } from '@/app/lib/portal-permissions'
 import { createHmac } from 'node:crypto'
 import { getSession } from '@/app/lib/portal-auth'
 import { resolveActiveClientId, resolveDochubClientName } from '@/app/lib/portal-section'
@@ -20,6 +21,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) return NextResponse.json({ error: 'no client link' }, { status: 403 })
+  if (!(await canAccess(session, activeClientId, 'invoices'))) {
+    return NextResponse.json({ error: 'Your account does not include invoices for this company.' }, { status: 403 })
+  }
 
   const clientName = await resolveDochubClientName(activeClientId)
   if (!clientName) return NextResponse.json({ error: 'stale client link' }, { status: 404 })

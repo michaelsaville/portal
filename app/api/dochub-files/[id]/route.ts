@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { canAccess } from '@/app/lib/portal-permissions'
 import { createHmac } from 'node:crypto'
 import { getSession } from '@/app/lib/portal-auth'
 import { resolveActiveClientId } from '@/app/lib/portal-section'
@@ -25,6 +26,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const clientId = await resolveActiveClientId(session)
   if (!clientId) return NextResponse.json({ error: 'no client link' }, { status: 403 })
+  if (!(await canAccess(session, clientId, 'documents'))) {
+    return NextResponse.json({ error: 'Your account does not include documents for this company.' }, { status: 403 })
+  }
 
   const base = process.env.DOCHUB_BFF_URL
   const secret = process.env.PORTAL_BFF_SECRET

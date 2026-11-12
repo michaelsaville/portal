@@ -4,9 +4,9 @@ import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
 import PortalSection, {
   EmptyState,
-  NotLinkedYet,
-} from '@/app/components/PortalSection'
+  NotLinkedYet, NoAccess } from '@/app/components/PortalSection'
 import AggregateNotSupported from '@/app/components/AggregateNotSupported'
+import { canAccess } from '@/app/lib/portal-permissions'
 import {
   resolveActiveClientId,
   resolveDochubClientName,
@@ -79,6 +79,7 @@ export default async function AccountOverviewPage() {
 
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) return <NotLinkedYet title="Account" />
+  if (!(await canAccess(session, activeClientId, 'invoices'))) return <NoAccess title="Account" />
   const clientName = await resolveDochubClientName(activeClientId)
 
   let overview: OverviewResponse | null = null

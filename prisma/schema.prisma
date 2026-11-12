@@ -52,6 +52,7 @@ model PortalUser {
   sessions         PortalSession[]
   magicLinks       PortalMagicLink[]
   clientLinks      PortalUserClientLink[]
+  remoteGrants     PortalRemoteGrant[]
   vendorLinks      PortalUserVendorLink[]
   vendorClientGrants PortalVendorClientGrant[]
   vaultSessions    PortalVaultSession[]
@@ -337,5 +338,29 @@ model PortalVaultSession {
   @@unique([portalUserId, clientId])
   @@index([expiresAt])
   @@map("portal_vault_sessions")
+  @@schema("portal")
+}
+
+/// Customer remote access (2026-11-12): which Breeze devices a portal user
+/// may open a remote-desktop session to, per DocHub client. Staff manage
+/// these in /admin/users. The portal brokers the session through a
+/// dedicated Breeze user (app/lib/breeze.ts) — Breeze never sees the
+/// customer, so this table + the connect route are the whole access gate.
+model PortalRemoteGrant {
+  id             String     @id @default(cuid())
+  portalUserId   String
+  portalUser     PortalUser @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
+  /// DocHub Client.id the device belongs to (via Client.breezeOrgId).
+  clientId       String
+  /// Breeze devices.id (uuid).
+  breezeDeviceId String
+  /// Hostname / display name cached at grant time, for admin + audit text.
+  deviceLabel    String
+  grantedByEmail String
+  createdAt      DateTime   @default(now())
+
+  @@unique([portalUserId, breezeDeviceId])
+  @@index([clientId])
+  @@map("portal_remote_grants")
   @@schema("portal")
 }

@@ -3,6 +3,8 @@ import { prisma } from '@/app/lib/prisma'
 import { getSession, type ResolvedSession } from '@/app/lib/portal-auth'
 import { isPortalAdminEmail } from '@/app/lib/portal-admin'
 import { PORTAL_ROLES } from '@/app/lib/portal-roles'
+import { getSectionAccess, isClientWideImpersonation, type SectionAccess } from '@/app/lib/portal-permissions'
+import { grantCount } from '@/app/lib/remote-access'
 
 /** The permission presets that "aggregate mode" actually serves. */
 const AGGREGABLE_PERMISSIONS = ['tickets', 'invoices', 'payments'] as const
@@ -37,6 +39,10 @@ export interface PortalContext {
   aggregate: AggregateState
   isImpersonating: boolean
   isAdmin: boolean
+  /** Sections the user's role allows at the active company. */
+  access: SectionAccess
+  /** Breeze devices this user may remote into at the active company. */
+  remoteDeviceCount: number
 }
 
 /**
@@ -61,9 +67,10 @@ export async function getPortalContext(): Promise<PortalContext | null> {
     count: 0,
   }
 
-  // Impersonation tunnels are pinned to a single client — don't surface
-  // the switcher even if the underlying user has multiple links.
-  if (isImpersonating) {
+  // Client-wide view-as tunnels (shared synthetic user) are pinned to a
+  // single client — no switcher. View-as a *specific* user falls through
+  // to the normal path so staff see that user's real companies + layout.
+  if (isClientWideImpersonation(session)) {
     let activeCompany: ActiveCompany | null = null
     if (session.activeClientId) {
       const rows = await prisma.$queryRawUnsafe<{ id: string; name: string }[]>(
@@ -82,6 +89,8 @@ export async function getPortalContext(): Promise<PortalContext | null> {
       aggregate: inactiveAggregate,
       isImpersonating,
       isAdmin: false,
+      access: await getSectionAccess(session, activeCompany?.id ?? null),
+      remoteDeviceCount: 0,
     }
   }
 
@@ -125,7 +134,9 @@ export async function getPortalContext(): Promise<PortalContext | null> {
     activeCompany,
     aggregate,
     isImpersonating,
-    isAdmin: isPortalAdminEmail(session.user.email),
+    isAdmin: !isImpersonating && isPortalAdminEmail(session.user.email),
+    access: await getSectionAccess(session, activeCompany?.id ?? null),
+    remoteDeviceCount: aggregate.active ? 0 : await grantCount(session.user.id, activeCompany?.id ?? null),
   }
 }
 

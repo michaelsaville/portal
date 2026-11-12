@@ -15,6 +15,9 @@ export interface ImpersonationClaims {
   clientName: string
   staffEmail: string
   staffName: string
+  /** Optional (2026-11-12): view as this specific PortalUser instead of the
+   *  shared synthetic impersonator. Must have a link to dochubClientId. */
+  portalUserId?: string
   iat: number
   exp: number
 }

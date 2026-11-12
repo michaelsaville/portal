@@ -2,8 +2,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getSession } from '@/app/lib/portal-auth'
 import { signedPost } from '@/app/lib/bff-client'
-import PortalSection, { EmptyState, NotLinkedYet } from '@/app/components/PortalSection'
+import PortalSection, { EmptyState, NotLinkedYet, NoAccess } from '@/app/components/PortalSection'
 import AggregateNotSupported from '@/app/components/AggregateNotSupported'
+import { canAccess } from '@/app/lib/portal-permissions'
 import { resolveActiveClientId, resolveDochubClientName } from '@/app/lib/portal-section'
 
 export const dynamic = 'force-dynamic'
@@ -60,6 +61,7 @@ export default async function EstimatesPage() {
 
   const activeClientId = await resolveActiveClientId(session)
   if (!activeClientId) return <NotLinkedYet title="Estimates" />
+  if (!(await canAccess(session, activeClientId, 'estimates'))) return <NoAccess title="Estimates" />
 
   const clientName = await resolveDochubClientName(activeClientId)
 
