@@ -87,9 +87,55 @@ export function totp(secret: string, step: number): string {
 // so the broker simply signs in again when the cached token is near expiry.
 // Breeze rejects a replayed TOTP code, so never sign in twice in one step.
 
-let cached: { token: string; expiresAt: number } | null = null
-let inflight: Promise<string> | null = null
-let lastStepUsed = -1
+// Breeze binds token issuance (login / MFA verify) to a `breeze_auth_binding`
+// cookie: the first call answers 428 + Set-Cookie and expects a retry. Keep
+// the cookies it hands us, like a browser would. Bearer calls don't need it.
+// Next bundles this module separately into every route that imports it, so
+// module-level state would mean one login (and one TOTP use) per route.
+// Breeze allows only 5 logins / 5 min per email, so share one broker state
+// per server process via globalThis.
+interface BrokerState {
+  jar: Map<string, string>
+  cached: { token: string; expiresAt: number } | null
+  inflight: Promise<string> | null
+  lastStepUsed: number
+}
+const G = globalThis as typeof globalThis & { __pcc2kBreezeBroker?: BrokerState }
+const st: BrokerState = (G.__pcc2kBreezeBroker ??= {
+  jar: new Map(),
+  cached: null,
+  inflight: null,
+  lastStepUsed: -1,
+})
+const jar = st.jar
+
+function absorbCookies(res: Response) {
+  for (const sc of res.headers.getSetCookie?.() ?? []) {
+    const [pair] = sc.split(';')
+    const eq = pair!.indexOf('=')
+    if (eq > 0) jar.set(pair!.slice(0, eq).trim(), pair!.slice(eq + 1).trim())
+  }
+}
+
+async function authPost(path: string, body: unknown): Promise<{ res: Response; json: Record<string, unknown> }> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`${apiBase()}/api/v1${path}`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(jar.size ? { cookie: [...jar].map(([k, v]) => `${k}=${v}`).join('; ') } : {}),
+      },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    })
+    absorbCookies(res)
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    const reason = String(json.reason ?? '')
+    if (attempt < 2 && (reason === 'auth_binding_rotation_required' || reason === 'binding_refresh')) continue
+    return { res, json }
+  }
+}
+
 
 async function login(): Promise<string> {
   const email = process.env.BREEZE_BROKER_EMAIL ?? ''
@@ -99,13 +145,8 @@ async function login(): Promise<string> {
     throw new BreezeError('Remote access is not set up yet.', 503, 'BROKER_NOT_CONFIGURED')
   }
 
-  const r1 = await fetch(`${apiBase()}/api/v1/auth/login`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-    cache: 'no-store',
-  })
-  const j1 = (await r1.json().catch(() => ({}))) as {
+  const { res: r1, json: j1raw } = await authPost('/auth/login', { email, password })
+  const j1 = j1raw as {
     mfaRequired?: boolean
     tempToken?: string
     tokens?: { accessToken?: string; expiresInSeconds?: number } | null
@@ -122,20 +163,19 @@ async function login(): Promise<string> {
   }
 
   let step = Math.floor(Date.now() / 30_000)
-  if (step <= lastStepUsed) {
+  if (step <= st.lastStepUsed) {
     // Same 30 s window as the previous sign-in — wait for a fresh code.
     await new Promise((r) => setTimeout(r, (step + 1) * 30_000 - Date.now() + 250))
     step = Math.floor(Date.now() / 30_000)
   }
-  lastStepUsed = step
+  st.lastStepUsed = step
 
-  const r2 = await fetch(`${apiBase()}/api/v1/auth/mfa/verify`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ code: totp(secret, step), tempToken: j1.tempToken, method: 'totp' }),
-    cache: 'no-store',
+  const { res: r2, json: j2raw } = await authPost('/auth/mfa/verify', {
+    code: totp(secret, step),
+    tempToken: j1.tempToken,
+    method: 'totp',
   })
-  const j2 = (await r2.json().catch(() => ({}))) as {
+  const j2 = j2raw as {
     tokens?: { accessToken?: string; expiresInSeconds?: number }
     error?: string
   }
@@ -146,18 +186,18 @@ async function login(): Promise<string> {
 }
 
 function remember(token: string, ttl?: number): string {
-  cached = { token, expiresAt: Date.now() + Math.max(60, (ttl ?? 900) - 60) * 1000 }
+  st.cached = { token, expiresAt: Date.now() + Math.max(60, (ttl ?? 900) - 60) * 1000 }
   return token
 }
 
 async function accessToken(force = false): Promise<string> {
-  if (!force && cached && cached.expiresAt > Date.now()) return cached.token
-  if (!inflight) {
-    inflight = login().finally(() => {
-      inflight = null
+  if (!force && st.cached && st.cached.expiresAt > Date.now()) return st.cached.token
+  if (!st.inflight) {
+    st.inflight = login().finally(() => {
+      st.inflight = null
     })
   }
-  return inflight
+  return st.inflight
 }
 
 async function breezeFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -173,7 +213,7 @@ async function breezeFetch<T>(path: string, init: RequestInit = {}): Promise<T> 
       cache: 'no-store',
     })
     if (res.status === 401 && attempt === 0) {
-      cached = null
+      st.cached = null
       continue
     }
     const body = (await res.json().catch(() => ({}))) as T & { error?: string; code?: string }
